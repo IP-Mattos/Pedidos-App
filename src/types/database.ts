@@ -21,15 +21,31 @@ export interface Product {
 export interface Order {
   id: string
   nombre_cliente: string
+  customer_phone?: string | null
+  customer_address?: string | null
   lista_productos: Product[]
   fecha_entrega: string
   esta_pagado: boolean
   metodo_pago: PaymentMethod
   monto_total: number
   status: OrderStatus
-  notas?: string
+  notas?: string | null
   created_by: string
+  assigned_to?: string | null // ✅ Nuevo campo
+  assigned_at?: string | null // ✅ Nuevo campo
+  progress_notes?: string[] | null // ✅ Nuevo campo
   created_at: string
   updated_at: string
   creator?: Profile
+  assignee?: Profile // ✅ Relación con worker asignado
+}
+
+export interface OrderProgress {
+  id: string
+  order_id: string
+  worker_id: string
+  status: string
+  notes?: string | null
+  created_at: string
+  worker?: Profile
 }

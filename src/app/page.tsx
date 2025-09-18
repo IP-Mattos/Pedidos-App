@@ -1,11 +1,10 @@
 'use client'
 
 import { useAuth } from '@/hooks/use-auth'
-import { Button } from '@/components/ui/button'
-import { NoSSR } from '@/components/ui/no-ssr'
-import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { MainLayout } from '@/components/layout/main-layout'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { Package, Users, TrendingUp, Clock, Plus, List, BarChart3 } from 'lucide-react'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 
 function UnauthenticatedView() {
   return (
@@ -34,73 +33,68 @@ function UnauthenticatedView() {
   )
 }
 
-function AuthenticatedView({ user, profile, signOut }: any) {
+function DashboardStats() {
   return (
-    <div className='min-h-screen bg-gray-50'>
-      <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
-        <div className='px-4 py-6 sm:px-0'>
-          <div className='border-4 border-dashed border-gray-200 rounded-lg p-8'>
-            <div className='text-center'>
-              <h1 className='text-3xl font-bold text-gray-900 mb-4'>
-                ¡Bienvenido, {profile?.full_name || user.email}!
-              </h1>
+    <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
+      <div className='bg-white overflow-hidden shadow rounded-lg'>
+        <div className='p-5'>
+          <div className='flex items-center'>
+            <div className='flex-shrink-0'>
+              <Package className='h-6 w-6 text-gray-400' />
+            </div>
+            <div className='ml-5 w-0 flex-1'>
+              <dl>
+                <dt className='text-sm font-medium text-gray-500 truncate'>Total Pedidos</dt>
+                <dd className='text-lg font-medium text-gray-900'>12</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              <div className='bg-white shadow rounded-lg p-6 mb-6'>
-                <h2 className='text-lg font-medium text-gray-900 mb-4'>Información del Usuario</h2>
-                <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-                  <div className='text-left'>
-                    <dt className='text-sm font-medium text-gray-500'>Email</dt>
-                    <dd className='mt-1 text-sm text-gray-900'>{user.email}</dd>
-                  </div>
-                  {profile ? (
-                    <>
-                      <div className='text-left'>
-                        <dt className='text-sm font-medium text-gray-500'>Nombre</dt>
-                        <dd className='mt-1 text-sm text-gray-900'>{profile.full_name}</dd>
-                      </div>
-                      <div className='text-left'>
-                        <dt className='text-sm font-medium text-gray-500'>Rol</dt>
-                        <dd className='mt-1 text-sm text-gray-900'>
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              profile.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {profile.role === 'admin' ? 'Administrador' : 'Trabajador'}
-                          </span>
-                        </dd>
-                      </div>
-                    </>
-                  ) : (
-                    <div className='text-left col-span-2'>
-                      <div className='bg-yellow-50 border border-yellow-200 rounded p-3'>
-                        <p className='text-sm text-yellow-800'>
-                          ⚠️ Perfil no encontrado. La funcionalidad puede estar limitada.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <div className='text-left'>
-                    <dt className='text-sm font-medium text-gray-500'>Email Verificado</dt>
-                    <dd className='mt-1 text-sm text-gray-900'>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.email_confirmed_at ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {user.email_confirmed_at ? 'Verificado' : 'Pendiente'}
-                      </span>
-                    </dd>
-                  </div>
-                </div>
-              </div>
+      <div className='bg-white overflow-hidden shadow rounded-lg'>
+        <div className='p-5'>
+          <div className='flex items-center'>
+            <div className='flex-shrink-0'>
+              <Clock className='h-6 w-6 text-yellow-400' />
+            </div>
+            <div className='ml-5 w-0 flex-1'>
+              <dl>
+                <dt className='text-sm font-medium text-gray-500 truncate'>Pendientes</dt>
+                <dd className='text-lg font-medium text-gray-900'>3</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              <button
-                onClick={signOut}
-                className='bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors'
-              >
-                Cerrar Sesión
-              </button>
+      <div className='bg-white overflow-hidden shadow rounded-lg'>
+        <div className='p-5'>
+          <div className='flex items-center'>
+            <div className='flex-shrink-0'>
+              <TrendingUp className='h-6 w-6 text-green-400' />
+            </div>
+            <div className='ml-5 w-0 flex-1'>
+              <dl>
+                <dt className='text-sm font-medium text-gray-500 truncate'>Completados</dt>
+                <dd className='text-lg font-medium text-gray-900'>9</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className='bg-white overflow-hidden shadow rounded-lg'>
+        <div className='p-5'>
+          <div className='flex items-center'>
+            <div className='flex-shrink-0'>
+              <Users className='h-6 w-6 text-blue-400' />
+            </div>
+            <div className='ml-5 w-0 flex-1'>
+              <dl>
+                <dt className='text-sm font-medium text-gray-500 truncate'>Clientes</dt>
+                <dd className='text-lg font-medium text-gray-900'>8</dd>
+              </dl>
             </div>
           </div>
         </div>
@@ -109,34 +103,96 @@ function AuthenticatedView({ user, profile, signOut }: any) {
   )
 }
 
+function AdminDashboard({ profile }: any) {
+  return (
+    <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
+      <div className='px-4 py-6 sm:px-0'>
+        <div className='mb-8'>
+          <h1 className='text-3xl font-bold text-gray-900'>Dashboard Administrativo</h1>
+          <p className='mt-2 text-gray-600'>Bienvenido, {profile?.full_name}. Gestiona todos los pedidos desde aquí.</p>
+        </div>
+
+        <DashboardStats />
+
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+          {/* Acciones rápidas */}
+          <div className='bg-white shadow rounded-lg p-6'>
+            <h2 className='text-lg font-medium text-gray-900 mb-4'>Acciones Rápidas</h2>
+            <div className='space-y-3'>
+              <Link href='/admin/create-order'>
+                <button className='w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700'>
+                  <Plus className='h-4 w-4 mr-2' />
+                  Crear Nuevo Pedido
+                </button>
+              </Link>
+
+              <Link href='/admin/orders'>
+                <button className='w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'>
+                  <List className='h-4 w-4 mr-2' />
+                  Ver Todos los Pedidos
+                </button>
+              </Link>
+
+              <Link href='/admin/reports'>
+                <button className='w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50'>
+                  <BarChart3 className='h-4 w-4 mr-2' />
+                  Ver Reportes
+                </button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Pedidos recientes */}
+          <div className='bg-white shadow rounded-lg p-6'>
+            <h2 className='text-lg font-medium text-gray-900 mb-4'>Pedidos Recientes</h2>
+            <div className='space-y-3'>
+              <div className='text-sm text-gray-500'>Próximamente: Lista de pedidos recientes...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WorkerDashboard({ profile }: any) {
+  return (
+    <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
+      <div className='px-4 py-6 sm:px-0'>
+        <div className='mb-8'>
+          <h1 className='text-3xl font-bold text-gray-900'>Panel de Trabajador</h1>
+          <p className='mt-2 text-gray-600'>Bienvenido, {profile?.full_name}. Aquí puedes ver tus pedidos asignados.</p>
+        </div>
+
+        <div className='bg-white shadow rounded-lg p-6'>
+          <h2 className='text-lg font-medium text-gray-900 mb-4'>Mis Pedidos</h2>
+          <div className='text-center py-8'>
+            <Package className='mx-auto h-12 w-12 text-gray-400' />
+            <h3 className='mt-2 text-sm font-medium text-gray-900'>No hay pedidos asignados</h3>
+            <p className='mt-1 text-sm text-gray-500'>
+              Los pedidos aparecerán aquí cuando sean asignados por un administrador.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function HomePage() {
-  const { user, profile, loading, signOut, isHydrated } = useAuth()
-  const [showTimeout, setShowTimeout] = useState(false)
+  const { user, profile, isHydrated } = useAuth()
 
-  // Mostrar advertencia si tarda mucho
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (loading) {
-        setShowTimeout(true)
-      }
-    }, 10000) // 10 segundos
+  if (!isHydrated) {
+    return <LoadingSpinner message='Cargando...' />
+  }
 
-    return () => clearTimeout(timer)
-  }, [loading])
-
-  // Mostrar loading hasta que esté hidratado y se resuelva la auth
-  if (!isHydrated || loading) {
-    return (
-      <LoadingSpinner
-        message={showTimeout ? 'Conectando con la base de datos...' : 'Cargando aplicación...'}
-        timeout={showTimeout}
-      />
-    )
+  if (!user) {
+    return <UnauthenticatedView />
   }
 
   return (
-    <NoSSR fallback={<LoadingSpinner />}>
-      {user ? <AuthenticatedView user={user} profile={profile} signOut={signOut} /> : <UnauthenticatedView />}
-    </NoSSR>
+    <MainLayout>
+      {profile?.role === 'admin' ? <AdminDashboard profile={profile} /> : <WorkerDashboard profile={profile} />}
+    </MainLayout>
   )
 }
