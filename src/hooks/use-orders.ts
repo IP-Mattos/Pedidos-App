@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order } from '@/types/database'
 import { OrdersService } from '@/lib/services/order-services'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 interface DatabaseOrder {
   id: string
@@ -31,12 +32,6 @@ interface DatabaseOrder {
     full_name: string
     email: string
   }
-}
-
-interface PostgresChangePayload {
-  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
-  new: DatabaseOrder
-  old: { id: string }
 }
 
 export function useOrders() {
@@ -70,10 +65,10 @@ export function useOrders() {
           schema: 'public',
           table: 'orders'
         },
-        (payload: any) => {
+        (payload: RealtimePostgresChangesPayload<DatabaseOrder>) => {
           console.log('🔔 Order change detected:', payload)
 
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' && payload.new) {
             const newOrder: Order = {
               ...payload.new,
               lista_productos:
@@ -83,7 +78,7 @@ export function useOrders() {
             } as Order
 
             setOrders((prev) => [newOrder, ...prev])
-          } else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
             const updatedOrder: Order = {
               ...payload.new,
               lista_productos:
@@ -93,7 +88,7 @@ export function useOrders() {
             } as Order
 
             setOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)))
-          } else if (payload.eventType === 'DELETE') {
+          } else if (payload.eventType === 'DELETE' && payload.old) {
             setOrders((prev) => prev.filter((order) => order.id !== payload.old.id))
           }
         }
@@ -153,7 +148,7 @@ export function useWorkerOrders(workerId: string) {
     const channel = supabase
       .channel('worker-orders-changes')
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: '*',
           schema: 'public',
