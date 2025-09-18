@@ -5,6 +5,40 @@ import { createClient } from '@/lib/supabase/client'
 import { Order } from '@/types/database'
 import { OrdersService } from '@/lib/services/order-services'
 
+interface DatabaseOrder {
+  id: string
+  nombre_cliente: string
+  customer_phone?: string | null
+  customer_address?: string | null
+  lista_productos: string | Order['lista_productos']
+  fecha_entrega: string
+  esta_pagado: boolean
+  metodo_pago: string
+  monto_total: number
+  status: string
+  notas?: string | null
+  created_by: string
+  assigned_to?: string | null
+  assigned_at?: string | null
+  progress_notes?: string[] | null
+  created_at: string
+  updated_at: string
+  creator?: {
+    full_name: string
+    email: string
+  }
+  assignee?: {
+    full_name: string
+    email: string
+  }
+}
+
+interface PostgresChangePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+  new: DatabaseOrder
+  old: { id: string }
+}
+
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,17 +64,17 @@ export function useOrders() {
     const channel = supabase
       .channel('orders-changes')
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: '*',
           schema: 'public',
           table: 'orders'
         },
-        (payload) => {
+        (payload: any) => {
           console.log('🔔 Order change detected:', payload)
 
           if (payload.eventType === 'INSERT') {
-            const newOrder = {
+            const newOrder: Order = {
               ...payload.new,
               lista_productos:
                 typeof payload.new.lista_productos === 'string'
@@ -50,7 +84,7 @@ export function useOrders() {
 
             setOrders((prev) => [newOrder, ...prev])
           } else if (payload.eventType === 'UPDATE') {
-            const updatedOrder = {
+            const updatedOrder: Order = {
               ...payload.new,
               lista_productos:
                 typeof payload.new.lista_productos === 'string'

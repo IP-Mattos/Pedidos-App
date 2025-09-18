@@ -9,6 +9,17 @@ import { OrderCard } from '@/components/orders/order-card'
 import { useOrders } from '@/hooks/use-orders'
 import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { Order, Profile } from '@/types/database'
+
+interface AuthenticatedViewProps {
+  user: {
+    id: string
+    email?: string
+    email_confirmed_at?: string | null
+  }
+  profile: Profile | null
+  signOut: () => Promise<void>
+}
 
 export default function AdminOrdersPage() {
   const { orders, loading, error } = useOrders()

@@ -2,9 +2,23 @@
 
 import { useAuth } from '@/hooks/use-auth'
 import { MainLayout } from '@/components/layout/main-layout'
+import { NoSSR } from '@/components/ui/no-ssr'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import Link from 'next/link'
 import { Package, Users, TrendingUp, Clock, Plus, List, BarChart3 } from 'lucide-react'
-import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { Profile } from '@/types/database'
+
+interface User {
+  id: string
+  email?: string
+  email_confirmed_at?: string | null
+}
+
+interface AuthenticatedViewProps {
+  user: User
+  profile: Profile | null
+  signOut: () => Promise<void>
+}
 
 function UnauthenticatedView() {
   return (
@@ -103,7 +117,7 @@ function DashboardStats() {
   )
 }
 
-function AdminDashboard({ profile }: any) {
+function AdminDashboard({ profile }: { profile: Profile | null }) {
   return (
     <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
       <div className='px-4 py-6 sm:px-0'>
@@ -155,7 +169,7 @@ function AdminDashboard({ profile }: any) {
   )
 }
 
-function WorkerDashboard({ profile }: any) {
+function WorkerDashboard({ profile }: { profile: Profile | null }) {
   return (
     <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
       <div className='px-4 py-6 sm:px-0'>
@@ -179,6 +193,14 @@ function WorkerDashboard({ profile }: any) {
   )
 }
 
+function AuthenticatedView({ user, profile, signOut }: AuthenticatedViewProps) {
+  return (
+    <MainLayout>
+      {profile?.role === 'admin' ? <AdminDashboard profile={profile} /> : <WorkerDashboard profile={profile} />}
+    </MainLayout>
+  )
+}
+
 export default function HomePage() {
   const { user, profile, isHydrated } = useAuth()
 
@@ -191,8 +213,8 @@ export default function HomePage() {
   }
 
   return (
-    <MainLayout>
-      {profile?.role === 'admin' ? <AdminDashboard profile={profile} /> : <WorkerDashboard profile={profile} />}
-    </MainLayout>
+    <NoSSR fallback={<LoadingSpinner />}>
+      <AuthenticatedView user={user} profile={profile} signOut={() => Promise.resolve()} />
+    </NoSSR>
   )
 }
