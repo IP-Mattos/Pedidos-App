@@ -92,4 +92,41 @@ export class AuthService {
       throw new Error(error.message)
     }
   }
+  static async updateUser(updates: { password?: string; email?: string; data?: any }) {
+    const supabase = createClient()
+
+    const { data, error } = await supabase.auth.updateUser(updates)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async changePassword(newPassword: string) {
+    const supabase = createClient()
+
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async sendPasswordResetEmail(email: string) {
+    const supabase = createClient()
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`
+    })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+  }
 }
