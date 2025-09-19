@@ -1,12 +1,14 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react'
 
 import { AuthForm } from '@/components/auth/auth-form'
 
-export default function AuthCodeErrorPage() {
+// Componente interno que usa useSearchParams
+function AuthCodeErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
@@ -81,5 +83,22 @@ export default function AuthCodeErrorPage() {
         </div>
       </div>
     </AuthForm>
+  )
+}
+
+// Componente principal con Suspense
+export default function AuthCodeErrorPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthForm title='Cargando...' subtitle='Por favor espera'>
+          <div className='flex justify-center items-center py-8'>
+            <div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500'></div>
+          </div>
+        </AuthForm>
+      }
+    >
+      <AuthCodeErrorContent />
+    </Suspense>
   )
 }

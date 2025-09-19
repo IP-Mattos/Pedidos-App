@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -9,7 +9,8 @@ import { Mail, RefreshCw, CheckCircle, ArrowLeft } from 'lucide-react'
 import { AuthForm } from '@/components/auth/auth-form'
 import { AuthService } from '@/lib/auth/auth-service'
 
-export default function VerifyEmailPage() {
+// Componente interno que usa useSearchParams
+function VerifyEmailContent() {
   const [isResending, setIsResending] = useState(false)
   const [email, setEmail] = useState('')
   const searchParams = useSearchParams()
@@ -32,6 +33,7 @@ export default function VerifyEmailPage() {
       await AuthService.resendVerification(email)
       toast.success('Email de verificación reenviado')
     } catch (error) {
+      console.error('Error al reenviar:', error)
       toast.error('Error al enviar el email de verificación')
     } finally {
       setIsResending(false)
@@ -140,5 +142,22 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </AuthForm>
+  )
+}
+
+// Componente principal con Suspense
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthForm title='Cargando...' subtitle='Por favor espera'>
+          <div className='flex justify-center items-center py-8'>
+            <div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500'></div>
+          </div>
+        </AuthForm>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   )
 }

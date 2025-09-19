@@ -59,12 +59,12 @@ export function useOrders() {
     const channel = supabase
       .channel('orders-changes')
       .on(
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'orders'
-        },
+        } as const,
         (payload: RealtimePostgresChangesPayload<DatabaseOrder>) => {
           console.log('🔔 Order change detected:', payload)
 
@@ -98,7 +98,7 @@ export function useOrders() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [supabase])
 
   const refetch = async () => {
     setLoading(true)
@@ -148,12 +148,12 @@ export function useWorkerOrders(workerId: string) {
     const channel = supabase
       .channel('worker-orders-changes')
       .on(
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'orders'
-        },
+        } as const,
         () => {
           // Recargar datos cuando hay cambios
           if (workerId) {
@@ -166,7 +166,7 @@ export function useWorkerOrders(workerId: string) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [workerId])
+  }, [workerId, supabase])
 
   const refetch = async () => {
     if (!workerId) return
