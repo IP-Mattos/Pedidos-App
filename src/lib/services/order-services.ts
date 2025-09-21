@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import type { CreateOrderFormData } from '@/lib/validations/orders'
-
+import { ProductProgressService } from '@/lib/services/product-progress-services'
 export class OrdersService {
   // ========== MÉTODOS ORIGINALES ==========
 
@@ -96,7 +96,13 @@ export class OrdersService {
 
   static async assignOrderToWorker(orderId: string, workerId: string) {
     const supabase = createClient()
+    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single()
 
+    if (!order) {
+      throw new Error('Pedido no encontrado')
+    }
+
+    // Asignar el pedido
     const { data, error } = await supabase
       .from('orders')
       .update({
@@ -105,7 +111,7 @@ export class OrdersService {
         status: 'en_proceso'
       })
       .eq('id', orderId)
-      .eq('status', 'pendiente') // Solo se puede asignar si está pendiente
+      .eq('status', 'pendiente')
       .select()
       .single()
 
@@ -115,6 +121,16 @@ export class OrdersService {
 
     if (!data) {
       throw new Error('El pedido ya no está disponible o ya fue asignado')
+    }
+
+    // Inicializar el progreso de productos
+    try {
+      const productos =
+        typeof order.lista_productos === 'string' ? JSON.parse(order.lista_productos) : order.lista_productos
+
+      await ProductProgressService.initializeProductProgress(orderId, productos)
+    } catch (error) {
+      console.error('Error initializing product progress:', error)
     }
 
     return data

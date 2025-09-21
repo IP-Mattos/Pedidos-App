@@ -19,6 +19,7 @@ import { Order } from '@/types/database'
 import { OrdersService } from '@/lib/services/order-services'
 import { useAuth } from '@/hooks/use-auth'
 import toast from 'react-hot-toast'
+import { ProductChecklist } from './product-checklist'
 
 interface WorkerOrderCardProps {
   order: Order
@@ -178,6 +179,11 @@ export function WorkerOrderCard({ order, onUpdateProgress }: WorkerOrderCardProp
             </div>
           )}
         </div>
+        {isAssignedToMe && order.status !== 'entregado' && order.status !== 'cancelado' && (
+          <div className='border-t pt-4 mb-4'>
+            <ProductChecklist orderId={order.id} products={order.lista_productos} isReadOnly={true} />
+          </div>
+        )}
 
         <div>
           {order.creator && (
