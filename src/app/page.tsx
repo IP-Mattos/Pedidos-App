@@ -214,10 +214,10 @@ function AdminDashboard({ profile, user }: { profile: Profile | null; user: User
                             order.status === 'pendiente'
                               ? 'bg-yellow-100 text-yellow-800'
                               : order.status === 'en_proceso'
-                              ? 'bg-blue-100 text-blue-800'
-                              : order.status === 'completado'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                                ? 'bg-blue-100 text-blue-800'
+                                : order.status === 'completado'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
                           }`}
                         >
                           {order.status}
