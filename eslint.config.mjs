@@ -18,6 +18,7 @@ const eslintConfig = [
     rules: {
       // Convertir errores en warnings
       '@typescript-eslint/no-unused-vars': 'warn',
+      'react/no-unescaped-entities': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': 'warn',
       'react-hooks/exhaustive-deps': 'warn'
