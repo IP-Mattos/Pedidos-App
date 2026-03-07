@@ -24,8 +24,6 @@ function BrandLogo() {
             {`@import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap');`}
           </style>
         </defs>
-
-        {/* "Autoservice" pequeño arriba */}
         <text
           x='38'
           y='18'
@@ -37,8 +35,6 @@ function BrandLogo() {
         >
           Autoservice
         </text>
-
-        {/* "Patricia" completo en gótico */}
         <text x='0' y='56' fill='white' fontFamily='UnifrakturCook, serif' fontSize='48' fontWeight='700'>
           Patricia
         </text>
