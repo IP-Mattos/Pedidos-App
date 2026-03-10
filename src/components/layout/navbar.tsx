@@ -243,6 +243,17 @@ export function Navbar() {
             )}
 
             <Link
+              href='/guia'
+              onClick={() => setMenuOpen(false)}
+              className={`flex items-center rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                isActive('/guia') ? 'bg-white/12 text-white ring-1 ring-white/20' : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+              }`}
+            >
+              <BookOpen className='mr-3 h-4 w-4' />
+              Guía
+            </Link>
+
+            <Link
               href='/settings'
               onClick={() => setMenuOpen(false)}
               className={`flex items-center rounded-xl px-3 py-3 text-sm font-medium transition-all ${
