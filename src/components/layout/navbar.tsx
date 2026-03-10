@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   Package, Users, Settings, LogOut, Plus, List, BarChart3, Menu, X,
-  Trophy, ChevronDown, LayoutDashboard
+  Trophy, ChevronDown, LayoutDashboard, BookOpen
 } from 'lucide-react'
 import { Inter } from 'next/font/google'
 import { useAuth } from '@/hooks/use-auth'
@@ -144,6 +144,18 @@ export function Navbar() {
                   Mis Pedidos
                 </Link>
               )}
+
+              <Link
+                href='/guia'
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                  isActive('/guia')
+                    ? 'bg-white/12 text-white shadow-inner ring-1 ring-white/20'
+                    : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+                }`}
+              >
+                <BookOpen className='h-4 w-4' />
+                Guía
+              </Link>
 
               <Link
                 href='/settings'
