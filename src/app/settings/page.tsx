@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import toast from 'react-hot-toast'
 import {
   User,
-  Mail,
   Shield,
   Bell,
   Palette,
@@ -19,13 +18,16 @@ import {
   Package,
   Settings as SettingsIcon,
   Edit2,
-  Lock
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { z } from 'zod'
-import Link from 'next/link'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { useAuth } from '@/hooks/use-auth'
+import { ProfileService } from '@/lib/services/profile-services'
+import { useTheme } from '@/components/providers/theme-provider'
 
 // Esquemas de validación
 const preferencesSchema = z.object({
@@ -39,8 +41,20 @@ const profileUpdateSchema = z.object({
   full_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres')
 })
 
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Ingresá tu contraseña actual'),
+    newPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres'),
+    confirmPassword: z.string().min(1, 'Confirmá tu nueva contraseña')
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword']
+  })
+
 type PreferencesFormData = z.infer<typeof preferencesSchema>
 type ProfileUpdateFormData = z.infer<typeof profileUpdateSchema>
+type PasswordFormData = z.infer<typeof passwordSchema>
 
 interface UserStats {
   totalAssigned: number
@@ -51,23 +65,23 @@ interface UserStats {
 }
 
 export default function SettingsPage() {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, signOut } = useAuth()
+  const { setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [isLoading, setIsLoading] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [userStats] = useState<UserStats>({
-    totalAssigned: 12,
-    completed: 8,
-    inProgress: 3,
-    totalUpdates: 25,
-    completionRate: 67
-  })
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [prefsLoading, setPrefsLoading] = useState(true)
 
   // Formulario para preferencias
   const {
     register: registerPreferences,
     handleSubmit: handleSubmitPreferences,
-    formState: { errors: preferencesErrors }
+    reset: resetPreferences,
   } = useForm<PreferencesFormData>({
     resolver: zodResolver(preferencesSchema),
     defaultValues: {
@@ -86,60 +100,109 @@ export default function SettingsPage() {
     reset: resetProfile
   } = useForm<ProfileUpdateFormData>({
     resolver: zodResolver(profileUpdateSchema),
-    defaultValues: {
-      full_name: profile?.full_name || ''
-    }
+    defaultValues: { full_name: profile?.full_name || '' }
   })
+
+  // Formulario para contraseña
+  const {
+    register: registerPassword,
+    handleSubmit: handleSubmitPassword,
+    formState: { errors: passwordErrors },
+    reset: resetPassword
+  } = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordSchema)
+  })
+
+  // Cargar preferencias guardadas
+  useEffect(() => {
+    if (!user) return
+    setPrefsLoading(true)
+    ProfileService.getUserPreferences(user.id)
+      .then((prefs) => {
+        if (prefs) {
+          resetPreferences({
+            theme: prefs.theme ?? 'light',
+            notifications_enabled: prefs.notifications_enabled ?? true,
+            email_notifications: prefs.email_notifications ?? true,
+            language: prefs.language ?? 'es'
+          })
+        }
+      })
+      .catch(() => {/* use defaults */})
+      .finally(() => setPrefsLoading(false))
+  }, [user, resetPreferences])
 
   // Actualizar valores por defecto cuando cambie el perfil
   useEffect(() => {
-    if (profile) {
-      resetProfile({ full_name: profile.full_name })
-    }
+    if (profile) resetProfile({ full_name: profile.full_name })
   }, [profile, resetProfile])
 
+  // Cargar estadísticas cuando se abre la tab
+  useEffect(() => {
+    if (activeTab !== 'stats' || !user || profile?.role !== 'worker') return
+    setStatsLoading(true)
+    ProfileService.getUserStats(user.id)
+      .then(setUserStats)
+      .catch(() => toast.error('Error al cargar estadísticas'))
+      .finally(() => setStatsLoading(false))
+  }, [activeTab, user, profile?.role])
+
   const onUpdatePreferences = async (data: PreferencesFormData) => {
+    if (!user) return
     setIsLoading(true)
     try {
-      // Simular actualización de preferencias
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await ProfileService.updateUserPreferences(user.id, data)
+      setTheme(data.theme)
       toast.success('Preferencias actualizadas')
     } catch (error) {
-      toast.error('Error al actualizar preferencias')
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar preferencias')
     } finally {
       setIsLoading(false)
     }
   }
 
   const onUpdateProfile = async (data: ProfileUpdateFormData) => {
+    if (!user) return
     setIsLoading(true)
     try {
-      // Simular actualización de perfil
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await ProfileService.updateProfile(user.id, { full_name: data.full_name })
       setIsEditingProfile(false)
       toast.success('Perfil actualizado')
       await refreshProfile()
     } catch (error) {
-      toast.error('Error al actualizar perfil')
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar perfil')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const onChangePassword = async (data: PasswordFormData) => {
+    setIsLoading(true)
+    try {
+      await ProfileService.changePassword(data.currentPassword, data.newPassword)
+      toast.success('Contraseña actualizada exitosamente')
+      resetPassword()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al cambiar contraseña')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleDeactivateAccount = async () => {
+    if (!user) return
     const confirmed = window.confirm(
       '¿Estás seguro de que quieres desactivar tu cuenta? Esta acción se puede revertir contactando soporte.'
     )
-
     if (!confirmed) return
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      toast.success('Cuenta desactivada. Serás redirigido al login.')
-      // Redirigir después de un momento
-      setTimeout(() => (window.location.href = '/login'), 2000)
+      await ProfileService.deactivateAccount(user.id)
+      toast.success('Cuenta desactivada.')
+      await signOut()
+      window.location.href = '/login'
     } catch (error) {
-      toast.error('Error al desactivar cuenta')
+      toast.error(error instanceof Error ? error.message : 'Error al desactivar cuenta')
     }
   }
 
@@ -179,7 +242,7 @@ export default function SettingsPage() {
         </div>
 
         <div className='grid grid-cols-1 lg:grid-cols-4 gap-8'>
-          {/* Sidebar de navegación */}
+          {/* Sidebar */}
           <div className='lg:col-span-1'>
             <nav className='space-y-2'>
               {tabs.map((tab) => {
@@ -202,12 +265,12 @@ export default function SettingsPage() {
             </nav>
           </div>
 
-          {/* Contenido principal */}
+          {/* Contenido */}
           <div className='lg:col-span-3'>
+
             {/* Tab: Perfil */}
             {activeTab === 'profile' && (
               <div className='space-y-6'>
-                {/* Información del perfil */}
                 <div className='bg-white shadow rounded-lg p-6'>
                   <div className='flex items-center justify-between mb-6'>
                     <h2 className='text-lg font-medium text-gray-900'>Información Personal</h2>
@@ -244,20 +307,14 @@ export default function SettingsPage() {
                           className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
                         >
                           {isLoading ? (
-                            <>
-                              <Loader2 className='h-4 w-4 mr-2 animate-spin' />
-                              Guardando...
-                            </>
+                            <><Loader2 className='h-4 w-4 mr-2 animate-spin' />Guardando...</>
                           ) : (
-                            <>
-                              <Save className='h-4 w-4 mr-2' />
-                              Guardar
-                            </>
+                            <><Save className='h-4 w-4 mr-2' />Guardar</>
                           )}
                         </button>
                         <button
                           type='button'
-                          onClick={() => setIsEditingProfile(false)}
+                          onClick={() => { setIsEditingProfile(false); resetProfile({ full_name: profile.full_name }) }}
                           className='px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50'
                         >
                           Cancelar
@@ -266,7 +323,6 @@ export default function SettingsPage() {
                     </form>
                   ) : (
                     <div className='space-y-6'>
-                      {/* Avatar y información básica */}
                       <div className='flex items-center space-x-6'>
                         <div className='h-20 w-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center'>
                           <User className='h-10 w-10 text-white' />
@@ -276,15 +332,14 @@ export default function SettingsPage() {
                           <p className='text-gray-600'>{user.email}</p>
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              profile.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                              profile.role === 'admin' ? 'bg-purple-100 text-purple-800' : profile.role === 'delivery' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'
                             }`}
                           >
-                            {profile.role === 'admin' ? '👑 Administrador' : '👷 Trabajador'}
+                            {profile.role === 'admin' ? '👑 Administrador' : profile.role === 'delivery' ? '🚚 Delivery' : '👷 Trabajador'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Información de la cuenta */}
                       <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                         <div className='space-y-4'>
                           <div>
@@ -293,7 +348,6 @@ export default function SettingsPage() {
                               {user.id.slice(0, 8)}...
                             </p>
                           </div>
-
                           <div>
                             <label className='block text-sm font-medium text-gray-700'>Fecha de Registro</label>
                             <p className='mt-1 text-sm text-gray-900'>
@@ -314,7 +368,6 @@ export default function SettingsPage() {
                               Email Verificado
                             </span>
                           </div>
-
                           <div>
                             <label className='block text-sm font-medium text-gray-700'>Última Actualización</label>
                             <p className='mt-1 text-sm text-gray-900'>
@@ -327,7 +380,6 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                {/* Acceso rápido a cambio de contraseña */}
                 <div className='bg-amber-50 border border-amber-200 rounded-lg p-6'>
                   <div className='flex items-start space-x-3'>
                     <Lock className='h-6 w-6 text-amber-600 mt-0.5' />
@@ -355,74 +407,74 @@ export default function SettingsPage() {
               <div className='bg-white shadow rounded-lg p-6'>
                 <h2 className='text-lg font-medium text-gray-900 mb-6'>Preferencias de la Aplicación</h2>
 
-                <form onSubmit={handleSubmitPreferences(onUpdatePreferences)} className='space-y-6'>
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-                    <div>
-                      <label className='block text-sm font-medium text-gray-700 mb-2'>Tema</label>
-                      <select
-                        {...registerPreferences('theme')}
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                      >
-                        <option value='light'>🌞 Claro</option>
-                        <option value='dark'>🌙 Oscuro</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className='block text-sm font-medium text-gray-700 mb-2'>Idioma</label>
-                      <select
-                        {...registerPreferences('language')}
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                      >
-                        <option value='es'>🇪🇸 Español</option>
-                        <option value='en'>🇺🇸 English</option>
-                      </select>
-                    </div>
+                {prefsLoading ? (
+                  <div className='flex justify-center py-8'>
+                    <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500' />
                   </div>
-
-                  <div className='space-y-4'>
-                    <h3 className='text-sm font-medium text-gray-900'>Notificaciones</h3>
-                    <div className='space-y-3'>
-                      <div className='flex items-center'>
-                        <input
-                          type='checkbox'
-                          {...registerPreferences('notifications_enabled')}
-                          className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-                        />
-                        <label className='ml-3 block text-sm text-gray-700'>
-                          Habilitar notificaciones en la aplicación
-                        </label>
+                ) : (
+                  <form onSubmit={handleSubmitPreferences(onUpdatePreferences)} className='space-y-6'>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                      <div>
+                        <label className='block text-sm font-medium text-gray-700 mb-2'>Tema</label>
+                        <select
+                          {...registerPreferences('theme')}
+                          className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                        >
+                          <option value='light'>🌞 Claro</option>
+                          <option value='dark'>🌙 Oscuro</option>
+                        </select>
                       </div>
 
-                      <div className='flex items-center'>
-                        <input
-                          type='checkbox'
-                          {...registerPreferences('email_notifications')}
-                          className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-                        />
-                        <label className='ml-3 block text-sm text-gray-700'>Recibir notificaciones por email</label>
+                      <div>
+                        <label className='block text-sm font-medium text-gray-700 mb-2'>Idioma</label>
+                        <select
+                          {...registerPreferences('language')}
+                          className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                        >
+                          <option value='es'>🇪🇸 Español</option>
+                          <option value='en'>🇺🇸 English</option>
+                        </select>
                       </div>
                     </div>
-                  </div>
 
-                  <button
-                    type='submit'
-                    disabled={isLoading}
-                    className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className='h-4 w-4 mr-2 animate-spin' />
-                        Guardando...
-                      </>
-                    ) : (
-                      <>
-                        <Save className='h-4 w-4 mr-2' />
-                        Guardar Preferencias
-                      </>
-                    )}
-                  </button>
-                </form>
+                    <div className='space-y-4'>
+                      <h3 className='text-sm font-medium text-gray-900'>Notificaciones</h3>
+                      <div className='space-y-3'>
+                        <div className='flex items-center'>
+                          <input
+                            type='checkbox'
+                            {...registerPreferences('notifications_enabled')}
+                            className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                          />
+                          <label className='ml-3 block text-sm text-gray-700'>
+                            Habilitar notificaciones en la aplicación
+                          </label>
+                        </div>
+
+                        <div className='flex items-center'>
+                          <input
+                            type='checkbox'
+                            {...registerPreferences('email_notifications')}
+                            className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                          />
+                          <label className='ml-3 block text-sm text-gray-700'>Recibir notificaciones por email</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type='submit'
+                      disabled={isLoading}
+                      className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
+                    >
+                      {isLoading ? (
+                        <><Loader2 className='h-4 w-4 mr-2 animate-spin' />Guardando...</>
+                      ) : (
+                        <><Save className='h-4 w-4 mr-2' />Guardar Preferencias</>
+                      )}
+                    </button>
+                  </form>
+                )}
               </div>
             )}
 
@@ -436,19 +488,11 @@ export default function SettingsPage() {
                     <h3 className='text-sm font-medium text-blue-900 mb-3'>📦 Notificaciones de Pedidos</h3>
                     <div className='space-y-3'>
                       <label className='flex items-center'>
-                        <input
-                          type='checkbox'
-                          defaultChecked
-                          className='h-4 w-4 text-blue-600 rounded border-gray-300'
-                        />
+                        <input type='checkbox' defaultChecked className='h-4 w-4 text-blue-600 rounded border-gray-300' />
                         <span className='ml-3 text-sm text-gray-700'>Nuevos pedidos asignados</span>
                       </label>
                       <label className='flex items-center'>
-                        <input
-                          type='checkbox'
-                          defaultChecked
-                          className='h-4 w-4 text-blue-600 rounded border-gray-300'
-                        />
+                        <input type='checkbox' defaultChecked className='h-4 w-4 text-blue-600 rounded border-gray-300' />
                         <span className='ml-3 text-sm text-gray-700'>Cambios de estado en mis pedidos</span>
                       </label>
                       <label className='flex items-center'>
@@ -462,20 +506,12 @@ export default function SettingsPage() {
                     <h3 className='text-sm font-medium text-green-900 mb-3'>🔔 Notificaciones del Sistema</h3>
                     <div className='space-y-3'>
                       <label className='flex items-center'>
-                        <input
-                          type='checkbox'
-                          defaultChecked
-                          className='h-4 w-4 text-blue-600 rounded border-gray-300'
-                        />
+                        <input type='checkbox' defaultChecked className='h-4 w-4 text-blue-600 rounded border-gray-300' />
                         <span className='ml-3 text-sm text-gray-700'>Actualizaciones de la aplicación</span>
                       </label>
                       <label className='flex items-center'>
                         <input type='checkbox' className='h-4 w-4 text-blue-600 rounded border-gray-300' />
                         <span className='ml-3 text-sm text-gray-700'>Notificaciones de mantenimiento</span>
-                      </label>
-                      <label className='flex items-center'>
-                        <input type='checkbox' className='h-4 w-4 text-blue-600 rounded border-gray-300' />
-                        <span className='ml-3 text-sm text-gray-700'>Newsletters y novedades</span>
                       </label>
                     </div>
                   </div>
@@ -488,108 +524,169 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Tab: Estadísticas (solo para workers) */}
+            {/* Tab: Estadísticas (solo workers) */}
             {activeTab === 'stats' && profile.role === 'worker' && (
               <div className='bg-white shadow rounded-lg p-6'>
                 <h2 className='text-lg font-medium text-gray-900 mb-6'>📊 Mis Estadísticas</h2>
 
-                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                  <div className='bg-blue-50 rounded-lg p-4 border border-blue-200'>
-                    <div className='flex items-center'>
-                      <Package className='h-8 w-8 text-blue-600' />
-                      <div className='ml-4'>
-                        <p className='text-sm font-medium text-blue-900'>Total Asignados</p>
-                        <p className='text-2xl font-bold text-blue-700'>{userStats.totalAssigned}</p>
+                {statsLoading ? (
+                  <div className='flex justify-center py-8'>
+                    <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500' />
+                  </div>
+                ) : userStats ? (
+                  <>
+                    <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+                      <div className='bg-blue-50 rounded-lg p-4 border border-blue-200'>
+                        <div className='flex items-center'>
+                          <Package className='h-8 w-8 text-blue-600' />
+                          <div className='ml-4'>
+                            <p className='text-sm font-medium text-blue-900'>Total Asignados</p>
+                            <p className='text-2xl font-bold text-blue-700'>{userStats.totalAssigned}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className='bg-green-50 rounded-lg p-4 border border-green-200'>
+                        <div className='flex items-center'>
+                          <CheckCircle className='h-8 w-8 text-green-600' />
+                          <div className='ml-4'>
+                            <p className='text-sm font-medium text-green-900'>Completados</p>
+                            <p className='text-2xl font-bold text-green-700'>{userStats.completed}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className='bg-yellow-50 rounded-lg p-4 border border-yellow-200'>
+                        <div className='flex items-center'>
+                          <Clock className='h-8 w-8 text-yellow-600' />
+                          <div className='ml-4'>
+                            <p className='text-sm font-medium text-yellow-900'>En Proceso</p>
+                            <p className='text-2xl font-bold text-yellow-700'>{userStats.inProgress}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className='bg-purple-50 rounded-lg p-4 border border-purple-200'>
+                        <div className='flex items-center'>
+                          <BarChart3 className='h-8 w-8 text-purple-600' />
+                          <div className='ml-4'>
+                            <p className='text-sm font-medium text-purple-900'>Tasa de Éxito</p>
+                            <p className='text-2xl font-bold text-purple-700'>{userStats.completionRate}%</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className='bg-green-50 rounded-lg p-4 border border-green-200'>
-                    <div className='flex items-center'>
-                      <CheckCircle className='h-8 w-8 text-green-600' />
-                      <div className='ml-4'>
-                        <p className='text-sm font-medium text-green-900'>Completados</p>
-                        <p className='text-2xl font-bold text-green-700'>{userStats.completed}</p>
-                      </div>
+                    <div className='mt-6 p-4 bg-gray-50 rounded-lg'>
+                      <h3 className='text-sm font-medium text-gray-900 mb-2'>🏆 Rendimiento</h3>
+                      <p className='text-sm text-gray-600'>
+                        Has realizado <strong>{userStats.totalUpdates}</strong> actualizaciones de progreso. ¡Excelente
+                        trabajo manteniendo informados a los clientes!
+                      </p>
                     </div>
-                  </div>
-
-                  <div className='bg-yellow-50 rounded-lg p-4 border border-yellow-200'>
-                    <div className='flex items-center'>
-                      <Clock className='h-8 w-8 text-yellow-600' />
-                      <div className='ml-4'>
-                        <p className='text-sm font-medium text-yellow-900'>En Proceso</p>
-                        <p className='text-2xl font-bold text-yellow-700'>{userStats.inProgress}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className='bg-purple-50 rounded-lg p-4 border border-purple-200'>
-                    <div className='flex items-center'>
-                      <BarChart3 className='h-8 w-8 text-purple-600' />
-                      <div className='ml-4'>
-                        <p className='text-sm font-medium text-purple-900'>Tasa de Éxito</p>
-                        <p className='text-2xl font-bold text-purple-700'>{userStats.completionRate}%</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className='mt-6 p-4 bg-gray-50 rounded-lg'>
-                  <h3 className='text-sm font-medium text-gray-900 mb-2'>🏆 Rendimiento</h3>
-                  <p className='text-sm text-gray-600'>
-                    Has realizado <strong>{userStats.totalUpdates}</strong> actualizaciones de progreso. ¡Excelente
-                    trabajo manteniendo informados a los clientes!
-                  </p>
-                </div>
+                  </>
+                ) : (
+                  <p className='text-sm text-gray-500 text-center py-6'>No se pudieron cargar las estadísticas.</p>
+                )}
               </div>
             )}
 
             {/* Tab: Seguridad */}
             {activeTab === 'security' && (
               <div className='space-y-6'>
+                {/* Cambiar contraseña */}
                 <div className='bg-white shadow rounded-lg p-6'>
-                  <h2 className='text-lg font-medium text-gray-900 mb-6'>🔐 Configuración de Seguridad</h2>
+                  <h2 className='text-lg font-medium text-gray-900 mb-6'>🔐 Cambiar Contraseña</h2>
 
-                  <div className='space-y-6'>
-                    <div className='border-l-4 border-blue-500 pl-6 py-4 bg-blue-50'>
-                      <h3 className='text-sm font-medium text-blue-900 mb-2'>Cambiar Contraseña</h3>
-                      <p className='text-sm text-blue-700 mb-4'>
-                        Actualiza tu contraseña para mantener tu cuenta segura.
-                      </p>
-                      <Link href='/reset-password'>
-                        <button className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'>
-                          <Lock className='h-4 w-4 mr-2' />
-                          Cambiar Contraseña
+                  <form onSubmit={handleSubmitPassword(onChangePassword)} className='space-y-4 max-w-md'>
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 mb-1'>Contraseña actual</label>
+                      <div className='relative'>
+                        <input
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          {...registerPassword('currentPassword')}
+                          className='w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                          placeholder='Tu contraseña actual'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => setShowCurrentPassword((v) => !v)}
+                          className='absolute right-3 top-2.5 text-gray-400 hover:text-gray-600'
+                        >
+                          {showCurrentPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                         </button>
-                      </Link>
-                    </div>
-
-                    <div className='border-l-4 border-green-500 pl-6 py-4 bg-green-50'>
-                      <h3 className='text-sm font-medium text-green-900 mb-2'>Actividad de la Cuenta</h3>
-                      <div className='space-y-2 text-sm text-green-700'>
-                        <p>
-                          • Último acceso: <strong>Hoy a las 14:30</strong>
-                        </p>
-                        <p>
-                          • Ubicación: <strong>Montevideo, Uruguay</strong>
-                        </p>
-                        <p>
-                          • Dispositivo: <strong>Chrome en Windows</strong>
-                        </p>
                       </div>
+                      {passwordErrors.currentPassword && (
+                        <p className='mt-1 text-sm text-red-600'>{passwordErrors.currentPassword.message}</p>
+                      )}
                     </div>
 
-                    <div className='border-l-4 border-amber-500 pl-6 py-4 bg-amber-50'>
-                      <h3 className='text-sm font-medium text-amber-900 mb-2'>Recomendaciones de Seguridad</h3>
-                      <ul className='text-sm text-amber-700 space-y-1'>
-                        <li>✅ Email verificado</li>
-                        <li>✅ Contraseña fuerte</li>
-                        <li>⚠️ Considera activar autenticación de dos factores</li>
-                        <li>⚠️ Revisa regularmente tu actividad de cuenta</li>
-                      </ul>
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 mb-1'>Nueva contraseña</label>
+                      <div className='relative'>
+                        <input
+                          type={showNewPassword ? 'text' : 'password'}
+                          {...registerPassword('newPassword')}
+                          className='w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                          placeholder='Mínimo 6 caracteres'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => setShowNewPassword((v) => !v)}
+                          className='absolute right-3 top-2.5 text-gray-400 hover:text-gray-600'
+                        >
+                          {showNewPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
+                        </button>
+                      </div>
+                      {passwordErrors.newPassword && (
+                        <p className='mt-1 text-sm text-red-600'>{passwordErrors.newPassword.message}</p>
+                      )}
                     </div>
-                  </div>
+
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 mb-1'>Confirmar nueva contraseña</label>
+                      <div className='relative'>
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          {...registerPassword('confirmPassword')}
+                          className='w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                          placeholder='Repetí la nueva contraseña'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => setShowConfirmPassword((v) => !v)}
+                          className='absolute right-3 top-2.5 text-gray-400 hover:text-gray-600'
+                        >
+                          {showConfirmPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
+                        </button>
+                      </div>
+                      {passwordErrors.confirmPassword && (
+                        <p className='mt-1 text-sm text-red-600'>{passwordErrors.confirmPassword.message}</p>
+                      )}
+                    </div>
+
+                    <button
+                      type='submit'
+                      disabled={isLoading}
+                      className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
+                    >
+                      {isLoading ? (
+                        <><Loader2 className='h-4 w-4 mr-2 animate-spin' />Guardando...</>
+                      ) : (
+                        <><Lock className='h-4 w-4 mr-2' />Cambiar Contraseña</>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Recomendaciones */}
+                <div className='bg-white shadow rounded-lg p-6'>
+                  <h2 className='text-lg font-medium text-gray-900 mb-4'>Recomendaciones de Seguridad</h2>
+                  <ul className='text-sm text-gray-700 space-y-2'>
+                    <li>✅ Email verificado</li>
+                    <li>⚠️ Cambiá tu contraseña regularmente</li>
+                    <li>⚠️ Usá una contraseña única para esta aplicación</li>
+                  </ul>
                 </div>
 
                 {/* Zona de peligro */}

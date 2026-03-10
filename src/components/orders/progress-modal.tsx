@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { X, Send, Loader2, Package, CheckCircle } from 'lucide-react'
 import { OrdersService } from '@/lib/services/order-services'
 import { ProductChecklist } from './product-checklist'
-import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
 interface ProgressModalProps {
@@ -27,29 +26,22 @@ export function ProgressModal({ orderId, currentStatus, onClose, onUpdate }: Pro
   }, [orderId])
 
   const loadOrder = async () => {
-    const supabase = createClient()
-    const { data } = await supabase.from('orders').select('*').eq('id', orderId).single()
-
-    if (data) {
-      const productos =
-        typeof data.lista_productos === 'string' ? JSON.parse(data.lista_productos) : data.lista_productos
-      setOrder({ ...data, lista_productos: productos })
+    try {
+      const data = await OrdersService.getOrderById(orderId)
+      if (data) setOrder(data)
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!notes.trim() && activeTab === 'notes') {
-      toast.error('Por favor agrega una nota sobre el progreso')
-      return
-    }
-
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setIsSubmitting(true)
     try {
       await OrdersService.addProgressUpdate(orderId, status, notes)
-      toast.success('Progreso actualizado exitosamente')
+      toast.success('Estado actualizado')
       onUpdate()
       onClose()
     } catch (error) {
@@ -145,9 +137,8 @@ export function ProgressModal({ orderId, currentStatus, onClose, onUpdate }: Pro
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}
-                  placeholder='Describe el estado actual del pedido, problemas encontrados, etc...'
+                  placeholder='Describe el estado actual del pedido, problemas encontrados, etc... (opcional)'
                   className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                  required
                 />
               </div>
 
@@ -174,7 +165,7 @@ export function ProgressModal({ orderId, currentStatus, onClose, onUpdate }: Pro
             {activeTab === 'notes' && (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !notes.trim()}
+                disabled={isSubmitting}
                 className='flex-1 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
               >
                 {isSubmitting ? (

@@ -7,11 +7,11 @@ import { ProgressModal } from '@/components/orders/progress-modal'
 import { useWorkerOrders } from '@/hooks/use-orders'
 import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { Package, Clock, User, CheckCircle } from 'lucide-react'
+import { Package, Clock, User, CheckCircle, History, Calendar, DollarSign } from 'lucide-react'
 
 export default function WorkerOrdersPage() {
   const { user, profile } = useAuth()
-  const { availableOrders, myOrders, loading, error, refetch } = useWorkerOrders(user?.id || '')
+  const { availableOrders, myOrders, loading, error, silentRefetch } = useWorkerOrders(user?.id || '')
   const [progressModal, setProgressModal] = useState<{
     isOpen: boolean
     orderId: string
@@ -48,13 +48,16 @@ export default function WorkerOrdersPage() {
   }
 
   const handleUpdate = () => {
-    refetch()
+    silentRefetch()
   }
+
+  const activeOrders = myOrders.filter((o) => o.status === 'en_proceso')
+  const completedOrders = myOrders.filter((o) => ['completado', 'entregado'].includes(o.status))
 
   // Estadísticas para el worker
   const myOrdersStats = {
     total: myOrders.length,
-    en_proceso: myOrders.filter((o) => o.status === 'en_proceso').length,
+    en_proceso: activeOrders.length,
     completados: myOrders.filter((o) => o.status === 'completado').length,
     entregados: myOrders.filter((o) => o.status === 'entregado').length
   }
@@ -137,18 +140,6 @@ export default function WorkerOrdersPage() {
           </div>
         </div>
 
-        {/* Mis pedidos asignados */}
-        {myOrders.length > 0 && (
-          <div className='mb-8'>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>Mis Pedidos Asignados</h2>
-            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
-              {myOrders.map((order) => (
-                <WorkerOrderCard key={order.id} order={order} onUpdateProgress={openProgressModal} />
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Pedidos disponibles */}
         <div className='mb-8'>
           <h2 className='text-2xl font-bold text-gray-900 mb-4'>
@@ -174,6 +165,58 @@ export default function WorkerOrdersPage() {
             </div>
           )}
         </div>
+
+        {/* Mis pedidos activos */}
+        {activeOrders.length > 0 && (
+          <div className='mb-8'>
+            <h2 className='text-2xl font-bold text-gray-900 mb-4'>Mis Pedidos Activos</h2>
+            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
+              {activeOrders.map((order) => (
+                <WorkerOrderCard key={order.id} order={order} onUpdateProgress={openProgressModal} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Historial de pedidos completados */}
+        {completedOrders.length > 0 && (
+          <div className='mb-8'>
+            <div className='flex items-center gap-3 mb-4'>
+              <History className='h-6 w-6 text-gray-400' />
+              <h2 className='text-2xl font-bold text-gray-900'>Mis Pedidos Completados</h2>
+              <span className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'>
+                {completedOrders.length}
+              </span>
+            </div>
+            <div className='bg-white shadow rounded-lg divide-y'>
+              {completedOrders.map((order) => (
+                <div key={order.id} className='px-5 py-4 flex flex-wrap items-center justify-between gap-3'>
+                  <div>
+                    <p className='text-sm font-semibold text-gray-900'>{order.nombre_cliente}</p>
+                    <p className='text-xs text-gray-400 mt-0.5'>#{order.id.slice(-8)}</p>
+                  </div>
+                  <div className='flex items-center gap-4 text-xs text-gray-500'>
+                    <span className='flex items-center gap-1'>
+                      <Calendar className='h-3.5 w-3.5' />
+                      {new Date(order.fecha_entrega).toLocaleDateString()}
+                    </span>
+                    <span className='flex items-center gap-1'>
+                      <DollarSign className='h-3.5 w-3.5' />
+                      ${order.monto_total.toFixed(2)}
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${
+                      order.status === 'entregado'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {order.status === 'entregado' ? 'Entregado' : 'Completado'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Indicador de tiempo real */}
         <div className='text-center'>

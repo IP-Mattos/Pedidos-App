@@ -75,6 +75,70 @@ export class OrdersService {
     }))
   }
 
+  static async updateOrder(
+    orderId: string,
+    updates: {
+      nombre_cliente?: string
+      customer_phone?: string | null
+      customer_address?: string | null
+      fecha_entrega?: string
+      metodo_pago?: string
+      esta_pagado?: boolean
+      lista_productos?: unknown[]
+      monto_total?: number
+      notas?: string | null
+    }
+  ) {
+    const supabase = createClient()
+
+    const payload: Record<string, unknown> = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    }
+
+    if (updates.lista_productos) {
+      payload.lista_productos = JSON.stringify(updates.lista_productos)
+    }
+
+    const { data, error } = await supabase.from('orders').update(payload).eq('id', orderId).select().single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async getOrderById(orderId: string) {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(
+        `
+        *,
+        creator:profiles!orders_created_by_fkey (
+          id, full_name, email
+        ),
+        assignee:profiles!orders_assigned_to_fkey (
+          id, full_name, email
+        )
+      `
+      )
+      .eq('id', orderId)
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return {
+      ...data,
+      lista_productos:
+        typeof data.lista_productos === 'string' ? JSON.parse(data.lista_productos) : data.lista_productos
+    }
+  }
+
   static async updateOrderStatus(orderId: string, status: string) {
     const supabase = createClient()
 
@@ -287,6 +351,158 @@ export class OrdersService {
       .eq('assigned_to', workerId)
       .neq('status', 'cancelado')
       .order('assigned_at', { ascending: false })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data?.map((order) => ({
+      ...order,
+      lista_productos:
+        typeof order.lista_productos === 'string' ? JSON.parse(order.lista_productos) : order.lista_productos
+    }))
+  }
+
+  // Asignar pedido a un worker específico (solo admin, puede sobreescribir)
+  static async adminAssignOrder(orderId: string, workerId: string | null) {
+    const supabase = createClient()
+
+    const updateData =
+      workerId === null
+        ? { assigned_to: null, assigned_at: null, status: 'pendiente', updated_at: new Date().toISOString() }
+        : {
+            assigned_to: workerId,
+            assigned_at: new Date().toISOString(),
+            status: 'en_proceso',
+            updated_at: new Date().toISOString()
+          }
+
+    const { data, error } = await supabase.from('orders').update(updateData).eq('id', orderId).select().single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async getCompletedOrders() {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(
+        `
+        *,
+        creator:profiles!orders_created_by_fkey (
+          full_name,
+          email
+        ),
+        assignee:profiles!orders_assigned_to_fkey (
+          full_name,
+          email
+        )
+      `
+      )
+      .eq('status', 'completado')
+      .order('updated_at', { ascending: false })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data?.map((order) => ({
+      ...order,
+      lista_productos:
+        typeof order.lista_productos === 'string' ? JSON.parse(order.lista_productos) : order.lista_productos
+    }))
+  }
+
+  static async deliveryUpdateStatus(orderId: string, newStatus: 'pagado' | 'entregado') {
+    const supabase = createClient()
+
+    const { data: order } = await supabase.from('orders').select('status').eq('id', orderId).single()
+
+    if (!order || order.status !== 'completado') {
+      throw new Error('Solo se pueden actualizar pedidos con estado "completado"')
+    }
+
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async getWorkerRanking() {
+    const supabase = createClient()
+
+    const [{ data: workers, error: wErr }, { data: orders, error: oErr }] = await Promise.all([
+      supabase.from('profiles').select('id, full_name, email').eq('role', 'worker'),
+      supabase
+        .from('orders')
+        .select('id, status, assigned_to, assigned_at, updated_at')
+        .not('assigned_to', 'is', null)
+    ])
+
+    if (wErr) throw new Error(wErr.message)
+    if (oErr) throw new Error(oErr.message)
+
+    const today = new Date().toISOString().split('T')[0]
+
+    return (workers || [])
+      .map((worker) => {
+        const wo = (orders || []).filter((o) => o.assigned_to === worker.id)
+        const completed = wo.filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status))
+        const inProgress = wo.filter((o) => o.status === 'en_proceso').length
+        const completedToday = completed.filter((o) => o.updated_at?.split('T')[0] === today).length
+
+        const timesMs = completed
+          .filter((o) => o.assigned_at && o.updated_at)
+          .map((o) => new Date(o.updated_at).getTime() - new Date(o.assigned_at!).getTime())
+          .filter((t) => t > 0)
+
+        const avgTimeMs = timesMs.length > 0 ? timesMs.reduce((a, b) => a + b, 0) / timesMs.length : null
+        const score = completed.length * 10000 - (avgTimeMs ? avgTimeMs / 60000 : 0)
+
+        return {
+          id: worker.id,
+          full_name: worker.full_name,
+          email: worker.email,
+          completed: completed.length,
+          inProgress,
+          completedToday,
+          avgTimeMs,
+          score,
+          total: wo.length
+        }
+      })
+      .sort((a, b) => b.score - a.score)
+  }
+
+  static async getDeliveryHistory() {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(
+        `
+        *,
+        assignee:profiles!orders_assigned_to_fkey (
+          full_name,
+          email
+        )
+      `
+      )
+      .in('status', ['pagado', 'entregado'])
+      .order('updated_at', { ascending: false })
 
     if (error) {
       throw new Error(error.message)

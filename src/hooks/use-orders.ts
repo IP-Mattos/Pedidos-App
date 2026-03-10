@@ -79,15 +79,19 @@ export function useOrders() {
 
             setOrders((prev) => [newOrder, ...prev])
           } else if (payload.eventType === 'UPDATE' && payload.new) {
-            const updatedOrder: Order = {
-              ...payload.new,
-              lista_productos:
-                typeof payload.new.lista_productos === 'string'
-                  ? JSON.parse(payload.new.lista_productos)
-                  : payload.new.lista_productos
-            } as Order
-
-            setOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)))
+            setOrders((prev) =>
+              prev.map((order) => {
+                if (order.id !== payload.new.id) return order
+                return {
+                  ...order, // preserva creator, assignee y otros joins
+                  ...payload.new,
+                  lista_productos:
+                    typeof payload.new.lista_productos === 'string'
+                      ? JSON.parse(payload.new.lista_productos)
+                      : payload.new.lista_productos
+                } as Order
+              })
+            )
           } else if (payload.eventType === 'DELETE' && payload.old) {
             setOrders((prev) => prev.filter((order) => order.id !== payload.old.id))
           }
@@ -123,61 +127,12 @@ export function useWorkerOrders(workerId: string) {
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
-  useEffect(() => {
-    const fetchWorkerOrders = async () => {
-      try {
-        const [available, assigned] = await Promise.all([
-          OrdersService.getAvailableOrders(),
-          OrdersService.getMyAssignedOrders(workerId)
-        ])
-
-        setAvailableOrders(available || [])
-        setMyOrders(assigned || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al cargar pedidos')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (workerId) {
-      fetchWorkerOrders()
-    }
-
-    // Suscribirse a cambios en tiempo real
-    const channel = supabase
-      .channel('worker-orders-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders'
-        } as const,
-        () => {
-          // Recargar datos cuando hay cambios
-          if (workerId) {
-            fetchWorkerOrders()
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [workerId, supabase])
-
-  const refetch = async () => {
-    if (!workerId) return
-
-    setLoading(true)
+  const fetchWorkerOrders = async () => {
     try {
       const [available, assigned] = await Promise.all([
         OrdersService.getAvailableOrders(),
         OrdersService.getMyAssignedOrders(workerId)
       ])
-
       setAvailableOrders(available || [])
       setMyOrders(assigned || [])
     } catch (err) {
@@ -187,5 +142,52 @@ export function useWorkerOrders(workerId: string) {
     }
   }
 
-  return { availableOrders, myOrders, loading, error, refetch }
+  useEffect(() => {
+    if (workerId) fetchWorkerOrders()
+
+    const channel = supabase
+      .channel('worker-orders-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' } as const,
+        (payload: RealtimePostgresChangesPayload<DatabaseOrder>) => {
+          if (!workerId) return
+
+          if (payload.eventType === 'INSERT' && payload.new) {
+            // Nuevo pedido: si es pendiente y sin asignar, aparece al inicio de disponibles
+            if (payload.new.status === 'pendiente' && !payload.new.assigned_to) {
+              const newOrder = {
+                ...payload.new,
+                lista_productos:
+                  typeof payload.new.lista_productos === 'string'
+                    ? JSON.parse(payload.new.lista_productos)
+                    : payload.new.lista_productos
+              } as Order
+              setAvailableOrders((prev) => [newOrder, ...prev])
+            }
+          } else {
+            // Para UPDATE y DELETE, refetch completo para mantener consistencia
+            fetchWorkerOrders()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workerId, supabase])
+
+  // Recarga sin mostrar el spinner de página (para usar post-modal)
+  const silentRefetch = async () => {
+    if (!workerId) return
+    await fetchWorkerOrders()
+  }
+
+  const refetch = async () => {
+    if (!workerId) return
+    setLoading(true)
+    await fetchWorkerOrders()
+  }
+
+  return { availableOrders, myOrders, loading, error, refetch, silentRefetch }
 }

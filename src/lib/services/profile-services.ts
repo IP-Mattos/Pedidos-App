@@ -138,21 +138,30 @@ export class ProfileService {
   ) {
     const supabase = createClient()
 
-    const { data, error } = await supabase
+    const { data: existing } = await supabase
       .from('user_preferences')
-      .upsert({
-        user_id: userId,
-        ...preferences,
-        updated_at: new Date().toISOString()
-      })
-      .select()
+      .select('id')
+      .eq('user_id', userId)
       .single()
 
-    if (error) {
-      throw new Error(error.message)
+    if (existing) {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .update({ ...preferences, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .select()
+        .single()
+      if (error) throw new Error(error.message)
+      return data
+    } else {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .insert({ user_id: userId, ...preferences, updated_at: new Date().toISOString() })
+        .select()
+        .single()
+      if (error) throw new Error(error.message)
+      return data
     }
-
-    return data
   }
 
   // Obtener estadísticas del usuario (para workers)
@@ -214,6 +223,54 @@ export class ProfileService {
 
     // Cerrar sesión del usuario
     await supabase.auth.signOut()
+  }
+
+  // Obtener todos los workers (para selector de asignación)
+  static async getWorkers(): Promise<Profile[]> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'worker')
+      .order('full_name', { ascending: true })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data || []
+  }
+
+  // Obtener todos los perfiles (solo admin)
+  static async getAllProfiles(): Promise<Profile[]> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data || []
+  }
+
+  // Cambiar rol de un usuario (solo admin)
+  static async updateUserRole(userId: string, role: 'admin' | 'worker' | 'delivery'): Promise<Profile> {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
   }
 
   // Reactivar cuenta

@@ -1,19 +1,24 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Home, Package, Users, Settings, LogOut, Plus, List } from 'lucide-react'
-import { UnifrakturCook, Inter } from 'next/font/google'
+import {
+  Package, Users, Settings, LogOut, Plus, List, BarChart3, Menu, X,
+  Trophy, ChevronDown, LayoutDashboard
+} from 'lucide-react'
+import { Inter } from 'next/font/google'
 import { useAuth } from '@/hooks/use-auth'
 
-const gothic = UnifrakturCook({
-  subsets: ['latin'],
-  weight: '700'
-})
+const inter = Inter({ subsets: ['latin'] })
 
-const inter = Inter({
-  subsets: ['latin']
-})
+const ADMIN_ITEMS = [
+  { name: 'Crear Pedido', href: '/admin/create-order', icon: Plus },
+  { name: 'Pedidos', href: '/admin/orders', icon: Package },
+  { name: 'Usuarios', href: '/admin/users', icon: Users },
+  { name: 'Reportes', href: '/admin/reports', icon: BarChart3 },
+  { name: 'Ranking', href: '/admin/ranking', icon: Trophy },
+]
 
 function BrandLogo() {
   return (
@@ -24,15 +29,7 @@ function BrandLogo() {
             {`@import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap');`}
           </style>
         </defs>
-        <text
-          x='38'
-          y='18'
-          fill='white'
-          fontFamily='Inter, sans-serif'
-          fontSize='10'
-          letterSpacing='2'
-          fontWeight='300'
-        >
+        <text x='38' y='18' fill='white' fontFamily='Inter, sans-serif' fontSize='10' letterSpacing='2' fontWeight='300'>
           Autoservice
         </text>
         <text x='0' y='56' fill='white' fontFamily='UnifrakturCook, serif' fontSize='48' fontWeight='700'>
@@ -43,10 +40,67 @@ function BrandLogo() {
   )
 }
 
+function AdminDropdown({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const isAnyAdminActive = ADMIN_ITEMS.some((i) => pathname.startsWith(i.href))
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} className='relative'>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`group inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+          isAnyAdminActive
+            ? 'bg-white/12 text-white shadow-inner ring-1 ring-white/20'
+            : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+        }`}
+      >
+        <LayoutDashboard className='h-4 w-4' />
+        Gestión
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className='absolute left-0 top-full mt-2 w-52 rounded-xl border border-white/10 bg-red-900/95 backdrop-blur-sm shadow-xl overflow-hidden z-50'>
+          {ADMIN_ITEMS.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-white/15 text-white font-medium'
+                    : 'text-red-100/80 hover:bg-white/8 hover:text-white'
+                }`}
+              >
+                <Icon className='h-4 w-4 flex-shrink-0' />
+                {item.name}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function Navbar() {
   const { user, profile, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -55,69 +109,64 @@ export function Navbar() {
 
   if (!user) return null
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    ...(profile?.role === 'admin'
-      ? [
-          { name: 'Crear Pedido', href: '/admin/create-order', icon: Plus },
-          { name: 'Gestionar Pedidos', href: '/admin/orders', icon: Package },
-          { name: 'Usuarios', href: '/admin/users', icon: Users }
-        ]
-      : [{ name: 'Mis Pedidos', href: '/worker/orders', icon: List }]),
-    { name: 'Configuración', href: '/settings', icon: Settings }
-  ]
+  const roleLabel =
+    profile?.role === 'admin' ? 'Administrador' :
+    profile?.role === 'delivery' ? 'Delivery' : 'Trabajador'
 
-  const isActiveRoute = (href: string) => {
-    if (href === '/') return pathname === '/'
-    return pathname.startsWith(href)
-  }
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname.startsWith(href)
 
   return (
-    <nav
-      className={`${inter.className} sticky top-0 z-50 border-b border-red-800/80 bg-gradient-to-r from-red-800 via-red-700 to-red-800 shadow-lg`}
-    >
+    <nav className={`${inter.className} sticky top-0 z-50 border-b border-red-800/80 bg-gradient-to-r from-red-800 via-red-700 to-red-800 shadow-lg`}>
       <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
         <div className='flex min-h-[76px] items-center justify-between gap-4'>
-          <div className='flex items-center gap-8'>
+
+          {/* Left: logo + nav */}
+          <div className='flex items-center gap-6'>
             <BrandLogo />
 
+            {/* Desktop nav */}
             <div className='hidden sm:flex sm:items-center sm:gap-1'>
-              {navigation.map((item) => {
-                const Icon = item.icon
-                const isActive = isActiveRoute(item.href)
+              {profile?.role === 'admin' && (
+                <AdminDropdown pathname={pathname} />
+              )}
 
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`group inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-white/12 text-white shadow-inner ring-1 ring-white/20'
-                        : 'text-red-100/85 hover:bg-white/8 hover:text-white'
-                    }`}
-                  >
-                    <Icon
-                      className={`mr-2 h-4 w-4 transition-transform duration-200 ${
-                        isActive ? 'scale-100' : 'group-hover:scale-110'
-                      }`}
-                    />
-                    {item.name}
-                  </Link>
-                )
-              })}
+              {profile?.role === 'worker' && (
+                <Link
+                  href='/worker/orders'
+                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                    isActive('/worker/orders')
+                      ? 'bg-white/12 text-white shadow-inner ring-1 ring-white/20'
+                      : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+                  }`}
+                >
+                  <List className='h-4 w-4' />
+                  Mis Pedidos
+                </Link>
+              )}
+
+              <Link
+                href='/settings'
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                  isActive('/settings')
+                    ? 'bg-white/12 text-white shadow-inner ring-1 ring-white/20'
+                    : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+                }`}
+              >
+                <Settings className='h-4 w-4' />
+                Configuración
+              </Link>
             </div>
           </div>
 
+          {/* Right: user + logout (desktop) */}
           <div className='hidden sm:flex items-center gap-3'>
             <div className='rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-right backdrop-blur-sm'>
-              <div className='max-w-[220px] truncate text-sm font-semibold text-white'>
+              <div className='max-w-[200px] truncate text-sm font-semibold text-white'>
                 {profile?.full_name || user.email}
               </div>
-              <div className='text-xs text-red-100/80'>
-                {profile?.role === 'admin' ? 'Administrador' : 'Trabajador'}
-              </div>
+              <div className='text-xs text-red-100/80'>{roleLabel}</div>
             </div>
-
             <button
               onClick={handleSignOut}
               aria-label='Cerrar sesión'
@@ -127,45 +176,81 @@ export function Navbar() {
               <LogOut className='h-4 w-4' />
             </button>
           </div>
-        </div>
-      </div>
 
-      <div className='sm:hidden border-t border-white/10 bg-red-800/60 backdrop-blur-sm'>
-        <div className='px-3 py-3 space-y-1'>
-          <div className='mb-3 rounded-xl border border-white/10 bg-white/8 px-3 py-3'>
-            <div className='truncate text-sm font-semibold text-white'>{profile?.full_name || user.email}</div>
-            <div className='text-xs text-red-100/80'>{profile?.role === 'admin' ? 'Administrador' : 'Trabajador'}</div>
-          </div>
-
-          {navigation.map((item) => {
-            const Icon = item.icon
-            const isActive = isActiveRoute(item.href)
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center rounded-xl px-3 py-3 text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-white/12 text-white ring-1 ring-white/20'
-                    : 'text-red-100/85 hover:bg-white/8 hover:text-white'
-                }`}
-              >
-                <Icon className='mr-3 h-4 w-4' />
-                {item.name}
-              </Link>
-            )
-          })}
-
+          {/* Burger — mobile */}
           <button
-            onClick={handleSignOut}
-            className='flex w-full items-center rounded-xl px-3 py-3 text-sm font-medium text-red-100/85 transition-all hover:bg-white/8 hover:text-white'
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+            className='sm:hidden inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/8 p-2.5 text-red-100 transition-all hover:bg-white/14 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40'
           >
-            <LogOut className='mr-3 h-4 w-4' />
-            Cerrar sesión
+            {menuOpen ? <X className='h-5 w-5' /> : <Menu className='h-5 w-5' />}
           </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className='sm:hidden border-t border-white/10 bg-red-800/95 backdrop-blur-sm'>
+          <div className='px-3 py-3 space-y-1'>
+            {/* User info */}
+            <div className='mb-3 rounded-xl border border-white/10 bg-white/8 px-3 py-3'>
+              <div className='truncate text-sm font-semibold text-white'>{profile?.full_name || user.email}</div>
+              <div className='text-xs text-red-100/80'>{roleLabel}</div>
+            </div>
+
+            {/* Admin items (flat in mobile) */}
+            {profile?.role === 'admin' && ADMIN_ITEMS.map((item) => {
+              const Icon = item.icon
+              const active = pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                    active ? 'bg-white/12 text-white ring-1 ring-white/20' : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+                  }`}
+                >
+                  <Icon className='mr-3 h-4 w-4' />
+                  {item.name}
+                </Link>
+              )
+            })}
+
+            {profile?.role === 'worker' && (
+              <Link
+                href='/worker/orders'
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                  isActive('/worker/orders') ? 'bg-white/12 text-white ring-1 ring-white/20' : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+                }`}
+              >
+                <List className='mr-3 h-4 w-4' />
+                Mis Pedidos
+              </Link>
+            )}
+
+            <Link
+              href='/settings'
+              onClick={() => setMenuOpen(false)}
+              className={`flex items-center rounded-xl px-3 py-3 text-sm font-medium transition-all ${
+                isActive('/settings') ? 'bg-white/12 text-white ring-1 ring-white/20' : 'text-red-100/85 hover:bg-white/8 hover:text-white'
+              }`}
+            >
+              <Settings className='mr-3 h-4 w-4' />
+              Configuración
+            </Link>
+
+            <button
+              onClick={handleSignOut}
+              className='flex w-full items-center rounded-xl px-3 py-3 text-sm font-medium text-red-100/85 transition-all hover:bg-white/8 hover:text-white'
+            >
+              <LogOut className='mr-3 h-4 w-4' />
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

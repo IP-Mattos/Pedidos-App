@@ -1,7 +1,7 @@
 // Tipos de la base de datos
-export type UserRole = 'admin' | 'worker'
+export type UserRole = 'admin' | 'worker' | 'delivery'
 export type PaymentMethod = 'efectivo' | 'credito' | 'dolares' | 'cheque' | 'transferencia'
-export type OrderStatus = 'pendiente' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado'
+export type OrderStatus = 'pendiente' | 'en_proceso' | 'completado' | 'pagado' | 'entregado' | 'cancelado'
 
 export interface Profile {
   id: string

@@ -1,12 +1,13 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { MainLayout } from '@/components/layout/main-layout'
 import { NoSSR } from '@/components/ui/no-ssr'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import Link from 'next/link'
-import { Package, Users, TrendingUp, Clock, Plus, List, BarChart3, CheckCircle, AlertCircle } from 'lucide-react'
-import { Profile } from '@/types/database'
+import { Package, TrendingUp, Clock, Plus, List, BarChart3, CheckCircle, AlertCircle, Truck, DollarSign, History } from 'lucide-react'
+import { Profile, Order } from '@/types/database'
+import { OrdersService } from '@/lib/services/order-services'
 import { useOrders } from '@/hooks/use-orders'
 import { OrderCard } from '@/components/orders/order-card'
 import { WorkerOrderCard } from '@/components/orders/worker-order-card'
@@ -45,8 +46,10 @@ function UnauthenticatedView() {
   )
 }
 
-function AdminDashboard({ profile, user }: { profile: Profile | null; user: User }) {
+function AdminDashboard({ profile }: { profile: Profile | null }) {
   const { orders, loading, error } = useOrders()
+
+  const today = new Date().toISOString().split('T')[0]
 
   // Calcular estadísticas reales
   const stats = {
@@ -54,7 +57,10 @@ function AdminDashboard({ profile, user }: { profile: Profile | null; user: User
     pendientes: orders.filter((o) => o.status === 'pendiente').length,
     en_proceso: orders.filter((o) => o.status === 'en_proceso').length,
     completados: orders.filter((o) => o.status === 'completado').length,
-    entregados: orders.filter((o) => o.status === 'entregado').length
+    entregados: orders.filter((o) => o.status === 'entregado').length,
+    vencidos: orders.filter(
+      (o) => o.fecha_entrega.split('T')[0] < today && !['entregado', 'cancelado'].includes(o.status)
+    ).length
   }
 
   // Obtener pedidos recientes (últimos 5)
@@ -69,7 +75,7 @@ function AdminDashboard({ profile, user }: { profile: Profile | null; user: User
         </div>
 
         {/* Estadísticas reales */}
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8'>
+        <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8'>
           <div className='bg-white overflow-hidden shadow rounded-lg'>
             <div className='p-5'>
               <div className='flex items-center'>
@@ -144,6 +150,24 @@ function AdminDashboard({ profile, user }: { profile: Profile | null; user: User
                   <dl>
                     <dt className='text-sm font-medium text-gray-500 truncate'>Entregados</dt>
                     <dd className='text-lg font-medium text-gray-900'>{stats.entregados}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`overflow-hidden shadow rounded-lg ${stats.vencidos > 0 ? 'bg-red-50' : 'bg-white'}`}>
+            <div className='p-5'>
+              <div className='flex items-center'>
+                <div className='flex-shrink-0'>
+                  <AlertCircle className={`h-6 w-6 ${stats.vencidos > 0 ? 'text-red-500' : 'text-gray-300'}`} />
+                </div>
+                <div className='ml-5 w-0 flex-1'>
+                  <dl>
+                    <dt className='text-sm font-medium text-gray-500 truncate'>Vencidos</dt>
+                    <dd className={`text-lg font-medium ${stats.vencidos > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                      {stats.vencidos}
+                    </dd>
                   </dl>
                 </div>
               </div>
@@ -257,7 +281,11 @@ function AdminDashboard({ profile, user }: { profile: Profile | null; user: User
 
 function WorkerDashboard({ profile, user }: { profile: Profile | null; user: User }) {
   const { availableOrders, myOrders, loading, error } = useWorkerOrders(user.id)
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+
+  const [showCompleted, setShowCompleted] = useState(false)
+
+  const activeMyOrders = myOrders.filter((o) => !['completado', 'entregado'].includes(o.status))
+  const completedMyOrders = myOrders.filter((o) => ['completado', 'entregado'].includes(o.status))
 
   // Estadísticas del worker
   const stats = {
@@ -353,27 +381,6 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
           </div>
         ) : (
           <>
-            {/* Mis pedidos asignados */}
-            {myOrders.length > 0 && (
-              <div className='mb-8'>
-                <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-                  Mis Pedidos Asignados
-                  <span className='ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800'>
-                    {myOrders.length}
-                  </span>
-                </h2>
-                <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
-                  {myOrders.map((order) => (
-                    <WorkerOrderCard
-                      key={order.id}
-                      order={order}
-                      onUpdateProgress={(orderId, status) => setSelectedOrderId(orderId)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Pedidos disponibles para tomar */}
             <div className='mb-8'>
               <h2 className='text-2xl font-bold text-gray-900 mb-4'>
@@ -397,12 +404,75 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
                     <WorkerOrderCard
                       key={order.id}
                       order={order}
-                      onUpdateProgress={(orderId, status) => setSelectedOrderId(orderId)}
+                      onUpdateProgress={() => {}}
                     />
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Mis pedidos asignados */}
+            {activeMyOrders.length > 0 && (
+              <div className='mb-8'>
+                <h2 className='text-2xl font-bold text-gray-900 mb-4'>
+                  Mis Pedidos Asignados
+                  <span className='ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800'>
+                    {activeMyOrders.length}
+                  </span>
+                </h2>
+                <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
+                  {activeMyOrders.map((order) => (
+                    <WorkerOrderCard
+                      key={order.id}
+                      order={order}
+                      onUpdateProgress={() => {}}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mis pedidos completados */}
+            {completedMyOrders.length > 0 && (
+              <div className='mb-8'>
+                <button
+                  onClick={() => setShowCompleted((v) => !v)}
+                  className='flex items-center gap-2 text-gray-500 hover:text-gray-800 mb-3 text-sm font-medium'
+                >
+                  <CheckCircle className='h-4 w-4 text-green-500' />
+                  Mis Pedidos Completados
+                  <span className='inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'>
+                    {completedMyOrders.length}
+                  </span>
+                  <span className='ml-1 text-xs text-gray-400'>{showCompleted ? '▲ ocultar' : '▼ ver'}</span>
+                </button>
+
+                {showCompleted && (
+                  <div className='bg-white shadow rounded-lg divide-y'>
+                    {completedMyOrders.map((order) => (
+                      <Link
+                        key={order.id}
+                        href={`/worker/orders/${order.id}`}
+                        className='flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors'
+                      >
+                        <div>
+                          <p className='text-sm font-medium text-gray-900'>{order.nombre_cliente}</p>
+                          <p className='text-xs text-gray-400'>#{order.id.slice(-8)}</p>
+                        </div>
+                        <div className='flex items-center gap-3'>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            order.status === 'entregado' ? 'bg-green-200 text-green-900' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {order.status === 'entregado' ? 'Entregado' : 'Completado'}
+                          </span>
+                          <span className='text-sm text-gray-500'>${order.monto_total.toFixed(2)}</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Botón para ver todos */}
             <div className='text-center'>
@@ -420,11 +490,169 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
   )
 }
 
-function AuthenticatedView({ user, profile, signOut }: AuthenticatedViewProps) {
+function DeliveryDashboard({ profile }: { profile: Profile | null }) {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [history, setHistory] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      OrdersService.getCompletedOrders(),
+      OrdersService.getDeliveryHistory()
+    ])
+      .then(([pending, hist]) => {
+        setOrders((pending as Order[]) ?? [])
+        setHistory((hist as Order[]) ?? [])
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleUpdate = async (orderId: string, status: 'pagado' | 'entregado') => {
+    setUpdating(orderId)
+    try {
+      await OrdersService.deliveryUpdateStatus(orderId, status)
+      setOrders((prev) => {
+        const moved = prev.find((o) => o.id === orderId)
+        if (moved) {
+          setHistory((h) => [{ ...moved, status }, ...h])
+        }
+        return prev.filter((o) => o.id !== orderId)
+      })
+    } catch {
+      // silent
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  return (
+    <div className='max-w-4xl mx-auto py-6 sm:px-6 lg:px-8'>
+      <div className='mb-8'>
+        <h1 className='text-3xl font-bold text-gray-900'>Panel de Entrega</h1>
+        <p className='mt-2 text-gray-600'>
+          Bienvenido, {profile?.full_name}. Aquí están los pedidos listos para entregar.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className='flex justify-center py-12'>
+          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500' />
+        </div>
+      ) : orders.length === 0 ? (
+        <div className='text-center py-16 bg-white rounded-lg shadow'>
+          <Truck className='mx-auto h-12 w-12 text-gray-400' />
+          <h3 className='mt-2 text-sm font-medium text-gray-900'>No hay pedidos listos</h3>
+          <p className='mt-1 text-sm text-gray-500'>Los pedidos completados aparecerán aquí.</p>
+        </div>
+      ) : (
+        <div className='bg-white shadow rounded-lg divide-y'>
+          {orders.map((order) => (
+            <div key={order.id} className='px-5 py-4'>
+              <div className='flex flex-wrap items-start justify-between gap-3'>
+                <div>
+                  <Link href={`/delivery/orders/${order.id}`} className='font-semibold text-gray-900 hover:text-blue-600'>
+                    {order.nombre_cliente}
+                  </Link>
+                  <p className='text-xs text-gray-400'>#{order.id.slice(-8)}</p>
+                  {order.customer_address && (
+                    <p className='text-sm text-gray-500 mt-0.5'>{order.customer_address}</p>
+                  )}
+                  {order.customer_phone && (
+                    <p className='text-sm text-gray-500'>{order.customer_phone}</p>
+                  )}
+                </div>
+                <div className='text-right'>
+                  <p className='text-sm font-medium text-gray-900'>${order.monto_total.toFixed(2)}</p>
+                  <p className='text-xs text-gray-400'>{order.metodo_pago}</p>
+                </div>
+              </div>
+              <div className='mt-3 flex gap-2'>
+                <Link
+                  href={`/delivery/orders/${order.id}`}
+                  className='inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors'
+                >
+                  Ver detalle
+                </Link>
+                <button
+                  onClick={() => handleUpdate(order.id, 'pagado')}
+                  disabled={updating === order.id}
+                  className='flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors'
+                >
+                  <DollarSign className='h-4 w-4' />
+                  Pagado
+                </button>
+                <button
+                  onClick={() => handleUpdate(order.id, 'entregado')}
+                  disabled={updating === order.id}
+                  className='flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors'
+                >
+                  <Truck className='h-4 w-4' />
+                  Entregado
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Historial de entregas */}
+      {!loading && history.length > 0 && (
+        <div className='mt-8'>
+          <button
+            onClick={() => setShowHistory((v) => !v)}
+            className='flex items-center gap-2 text-gray-500 hover:text-gray-800 mb-3 text-sm font-medium'
+          >
+            <History className='h-4 w-4 text-gray-400' />
+            Historial de entregas
+            <span className='inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700'>
+              {history.length}
+            </span>
+            <span className='ml-1 text-xs text-gray-400'>{showHistory ? '▲ ocultar' : '▼ ver'}</span>
+          </button>
+
+          {showHistory && (
+            <div className='bg-white shadow rounded-lg divide-y'>
+              {history.map((order) => (
+                <Link
+                  key={order.id}
+                  href={`/delivery/orders/${order.id}`}
+                  className='flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors'
+                >
+                  <div>
+                    <p className='text-sm font-medium text-gray-900'>{order.nombre_cliente}</p>
+                    <p className='text-xs text-gray-400'>#{order.id.slice(-8)}</p>
+                    {order.customer_address && (
+                      <p className='text-xs text-gray-500'>{order.customer_address}</p>
+                    )}
+                  </div>
+                  <div className='flex items-center gap-3'>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      order.status === 'entregado' ? 'bg-green-200 text-green-900' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {order.status === 'entregado' ? 'Entregado' : 'Pagado'}
+                    </span>
+                    <span className='text-sm text-gray-500'>${order.monto_total.toFixed(2)}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AuthenticatedView({ user, profile }: AuthenticatedViewProps) {
   return (
     <MainLayout>
       {profile?.role === 'admin' ? (
-        <AdminDashboard profile={profile} user={user} />
+        <AdminDashboard profile={profile} />
+      ) : profile?.role === 'delivery' ? (
+        <DeliveryDashboard profile={profile} />
       ) : (
         <WorkerDashboard profile={profile} user={user} />
       )}
@@ -435,7 +663,6 @@ function AuthenticatedView({ user, profile, signOut }: AuthenticatedViewProps) {
 interface AuthenticatedViewProps {
   user: User
   profile: Profile | null
-  signOut: () => Promise<void>
 }
 
 export default function HomePage() {
@@ -451,7 +678,7 @@ export default function HomePage() {
 
   return (
     <NoSSR fallback={<LoadingSpinner />}>
-      <AuthenticatedView user={user} profile={profile} signOut={() => Promise.resolve()} />
+      <AuthenticatedView user={user} profile={profile} />
     </NoSSR>
   )
 }
