@@ -13,6 +13,7 @@ import { ProductList } from '@/components/orders/product-list'
 import { OrdersService } from '@/lib/services/order-services'
 import { createOrderSchema, type CreateOrderFormData, type ProductFormData } from '@/lib/validations/orders'
 import { useAuth } from '@/hooks/use-auth'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 
 export default function CreateOrderPage() {
   const [products, setProducts] = useState<ProductFormData[]>([])
@@ -124,12 +125,10 @@ export default function CreateOrderPage() {
               </div>
 
               <div className='md:col-span-2'>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>Dirección</label>
-                <input
-                  type='text'
-                  {...register('customer_address')}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                  placeholder='Dirección de entrega'
+                <label className='block text-sm font-medium text-gray-700 mb-2'>Dirección de entrega</label>
+                <AddressAutocomplete
+                  value={watch('customer_address') ?? ''}
+                  onChange={(val) => setValue('customer_address', val)}
                 />
               </div>
             </div>

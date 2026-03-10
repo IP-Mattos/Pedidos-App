@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 const OrderPDFButton = dynamic(
   () => import('@/components/orders/order-pdf').then((m) => m.OrderPDFButton),
@@ -202,33 +203,14 @@ export default function OrderDetailPage() {
     <MainLayout>
       <div className='max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8'>
         {/* Confirm cancel modal */}
-        {pendingStatus === 'cancelado' && (
-          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-            <div className='bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4'>
-              <div className='flex items-center gap-3 mb-4'>
-                <AlertCircle className='h-6 w-6 text-red-500 flex-shrink-0' />
-                <h3 className='text-base font-semibold text-gray-900'>¿Cancelar este pedido?</h3>
-              </div>
-              <p className='text-sm text-gray-500 mb-6'>
-                Esta acción cambiará el estado a <strong>Cancelado</strong>. Podés revertirlo luego si es necesario.
-              </p>
-              <div className='flex justify-end gap-3'>
-                <button
-                  onClick={() => setPendingStatus(null)}
-                  className='px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'
-                >
-                  No, volver
-                </button>
-                <button
-                  onClick={() => applyStatusChange('cancelado')}
-                  className='px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700'
-                >
-                  Sí, cancelar pedido
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={pendingStatus === 'cancelado'}
+          title='¿Cancelar este pedido?'
+          message='Esta acción cambiará el estado a Cancelado. Podés revertirlo luego si es necesario.'
+          confirmLabel='Sí, cancelar pedido'
+          onConfirm={() => applyStatusChange('cancelado')}
+          onCancel={() => setPendingStatus(null)}
+        />
 
         {/* Back + header */}
         <div className='mb-6'>
@@ -327,6 +309,15 @@ export default function OrderDetailPage() {
                     <div>
                       <p className='text-xs text-gray-500'>Dirección</p>
                       <p className='text-sm font-medium text-gray-900'>{order.customer_address}</p>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1'
+                      >
+                        <MapPin className='h-3 w-3' />
+                        Ver en mapa
+                      </a>
                     </div>
                   </div>
                 )}

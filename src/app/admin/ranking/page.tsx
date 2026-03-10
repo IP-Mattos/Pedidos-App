@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { RefreshCw, CheckCircle, Clock, Zap, Users, TrendingUp, Activity } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { useAuth } from '@/hooks/use-auth'
 import { OrdersService } from '@/lib/services/order-services'
+import { createClient } from '@/lib/supabase/client'
+
+type RankingPeriod = 'today' | 'week' | 'month' | 'all'
 
 type WorkerStat = {
   id: string
@@ -76,12 +80,11 @@ function Podium({ top3 }: { top3: WorkerStat[] }) {
       {PODIUM_ORDER.map((dataIdx) => {
         const w = top3[dataIdx]
         if (!w) return <div key={dataIdx} className='w-40' />
-        const visualPos = PODIUM_ORDER.indexOf(dataIdx)
         return (
-          <div key={w.id} className='flex flex-col items-center gap-2 w-40'>
+          <Link key={w.id} href={`/admin/ranking/${w.id}`} className='flex flex-col items-center gap-2 w-40 group'>
             <span className='text-3xl'>{MEDAL[dataIdx]}</span>
             <Avatar name={w.full_name} size={dataIdx === 0 ? 'xl' : 'lg'} />
-            <div className={`w-full text-center rounded-xl px-3 py-2 ${PODIUM_CARD[dataIdx]}`}>
+            <div className={`w-full text-center rounded-xl px-3 py-2 transition-opacity group-hover:opacity-80 ${PODIUM_CARD[dataIdx]}`}>
               <p className='text-sm font-bold text-gray-900 truncate'>{w.full_name}</p>
               <p className='text-xs text-gray-500'>{w.completed} completados</p>
               {w.completedToday > 0 && (
@@ -89,7 +92,7 @@ function Podium({ top3 }: { top3: WorkerStat[] }) {
               )}
             </div>
             <div className={`w-full rounded-t-xl shadow-lg ${PODIUM_BG[dataIdx]} ${PODIUM_HEIGHTS[dataIdx]}`} />
-          </div>
+          </Link>
         )
       })}
     </div>
@@ -120,6 +123,13 @@ function LiveDot() {
   )
 }
 
+const PERIOD_LABELS: Record<RankingPeriod, string> = {
+  today: 'Hoy',
+  week: 'Esta semana',
+  month: 'Este mes',
+  all: 'Todo'
+}
+
 export default function RankingPage() {
   const { profile } = useAuth()
   const [workers, setWorkers] = useState<WorkerStat[]>([])
@@ -127,11 +137,12 @@ export default function RankingPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [secondsAgo, setSecondsAgo] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
+  const [period, setPeriod] = useState<RankingPeriod>('all')
 
-  const load = useCallback(async (manual = false) => {
+  const load = useCallback(async (manual = false, currentPeriod: RankingPeriod = 'all') => {
     if (manual) setRefreshing(true)
     try {
-      const data = await OrdersService.getWorkerRanking()
+      const data = await OrdersService.getWorkerRanking(currentPeriod)
       setWorkers(data as WorkerStat[])
       setLastUpdated(new Date())
       setSecondsAgo(0)
@@ -143,10 +154,25 @@ export default function RankingPage() {
 
   // Initial load + auto-refresh every 30s
   useEffect(() => {
-    load()
-    const interval = setInterval(() => load(), 30000)
+    load(false, period)
+    const interval = setInterval(() => load(false, period), 30000)
     return () => clearInterval(interval)
-  }, [load])
+  }, [load, period])
+
+  // Realtime subscription for orders changes
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('ranking-orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        load(false, period)
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [load, period])
 
   // Seconds-ago counter
   useEffect(() => {
@@ -180,7 +206,7 @@ export default function RankingPage() {
       <div className='max-w-5xl mx-auto py-6 px-4 sm:px-6'>
 
         {/* Header */}
-        <div className='flex flex-wrap items-start justify-between gap-4 mb-8'>
+        <div className='flex flex-wrap items-start justify-between gap-4 mb-6'>
           <div>
             <h1 className='text-3xl font-bold text-gray-900'>🏆 Ranking de Trabajadores</h1>
             <p className='mt-1 text-gray-500 text-sm'>Basado en pedidos completados y tiempo promedio</p>
@@ -194,7 +220,7 @@ export default function RankingPage() {
               )}
             </div>
             <button
-              onClick={() => load(true)}
+              onClick={() => load(true, period)}
               disabled={refreshing}
               className='inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 bg-white shadow-sm transition-colors'
             >
@@ -202,6 +228,23 @@ export default function RankingPage() {
               Actualizar
             </button>
           </div>
+        </div>
+
+        {/* Period filter pills */}
+        <div className='flex flex-wrap items-center gap-2 mb-8'>
+          {(Object.keys(PERIOD_LABELS) as RankingPeriod[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-4 py-1.5 text-sm rounded-full font-medium transition-colors ${
+                period === p
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
         </div>
 
         {/* Summary stats */}
@@ -246,13 +289,15 @@ export default function RankingPage() {
               <div className='px-6 py-4 border-b border-gray-100 flex items-center gap-2'>
                 <TrendingUp className='h-4 w-4 text-gray-400' />
                 <h2 className='text-sm font-semibold text-gray-700'>Ranking completo</h2>
+                <span className='ml-auto text-xs text-gray-400'>Periodo: {PERIOD_LABELS[period]}</span>
               </div>
 
               <div className='divide-y divide-gray-50'>
                 {workers.map((w, i) => (
-                  <div
+                  <Link
                     key={w.id}
-                    className={`flex items-center gap-4 px-6 py-4 transition-colors hover:bg-gray-50 ${i < 3 ? 'bg-gray-50/50' : ''}`}
+                    href={`/admin/ranking/${w.id}`}
+                    className={`flex items-center gap-4 px-6 py-4 transition-colors hover:bg-blue-50/60 cursor-pointer ${i < 3 ? 'bg-gray-50/50' : ''}`}
                   >
                     {/* Rank */}
                     <div className='w-8 flex-shrink-0 text-center'>
@@ -299,13 +344,13 @@ export default function RankingPage() {
                       <p className='text-sm font-bold text-emerald-600'>{w.completed} ✓</p>
                       <p className='text-xs text-gray-400'>{formatAvgTime(w.avgTimeMs)}</p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
 
             <p className='mt-4 text-center text-xs text-gray-400'>
-              Se actualiza automáticamente cada 30 segundos · Puntuación = pedidos completados − tiempo promedio
+              Se actualiza automáticamente · Puntuación = pedidos completados − tiempo promedio
             </p>
           </>
         )}

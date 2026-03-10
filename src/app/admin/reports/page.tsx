@@ -21,6 +21,72 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
   )
 }
 
+// Simple CSS-based bar chart for orders per day (last 14 days)
+function DailyBarChart({ data }: { data: { label: string; total: number; completados: number }[] }) {
+  const maxVal = Math.max(...data.map((d) => d.total), 1)
+  return (
+    <div className='flex items-end gap-1 h-40 w-full'>
+      {data.map((d) => {
+        const totalPct = Math.round((d.total / maxVal) * 100)
+        const compPct = d.total > 0 ? Math.round((d.completados / d.total) * 100) : 0
+        return (
+          <div key={d.label} className='flex-1 flex flex-col items-center gap-1 group'>
+            <div className='relative w-full flex flex-col justify-end' style={{ height: '120px' }}>
+              {/* Background bar (total) */}
+              <div
+                className='w-full bg-blue-100 rounded-t-sm transition-all duration-500'
+                style={{ height: `${totalPct}%` }}
+              >
+                {/* Overlay bar (completed) */}
+                <div
+                  className='w-full bg-green-400 rounded-t-sm absolute bottom-0'
+                  style={{ height: `${(compPct / 100) * totalPct}%` }}
+                />
+              </div>
+              {/* Tooltip on hover */}
+              <div className='absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none'>
+                {d.total} total, {d.completados} completados
+              </div>
+            </div>
+            <span className='text-xs text-gray-400 truncate w-full text-center'>{d.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Pie chart built from CSS conic-gradient
+function StatusPieChart({ slices }: { slices: { label: string; value: number; color: string }[] }) {
+  const total = slices.reduce((s, sl) => s + sl.value, 0)
+  if (total === 0) return <p className='text-sm text-gray-400 text-center py-6'>Sin datos</p>
+
+  let cumulative = 0
+  const conicParts: string[] = []
+  slices.forEach((sl) => {
+    const pct = (sl.value / total) * 100
+    conicParts.push(`${sl.color} ${cumulative}% ${cumulative + pct}%`)
+    cumulative += pct
+  })
+
+  return (
+    <div className='flex flex-col items-center gap-4'>
+      <div
+        className='w-40 h-40 rounded-full'
+        style={{ background: `conic-gradient(${conicParts.join(', ')})` }}
+      />
+      <div className='grid grid-cols-2 gap-x-6 gap-y-2'>
+        {slices.map((sl) => (
+          <div key={sl.label} className='flex items-center gap-2 text-xs text-gray-600'>
+            <span className='w-3 h-3 rounded-sm flex-shrink-0' style={{ background: sl.color }} />
+            <span>{sl.label}: <strong>{sl.value}</strong></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function AdminReportsPage() {
   const { orders, loading } = useOrders()
   const { profile } = useAuth()
@@ -45,6 +111,35 @@ export default function AdminReportsPage() {
 
     return { total, completados, cancelados, pendientes, enProceso, vencidos, pagados, totalRevenue, completionRate }
   }, [orders, today])
+
+  // Orders per day (last 14 days)
+  const byDay = useMemo(() => {
+    const days: Record<string, { label: string; total: number; completados: number }> = {}
+    const now = new Date()
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().split('T')[0]
+      const label = d.toLocaleDateString('es-UY', { day: 'numeric', month: 'short' })
+      days[key] = { label, total: 0, completados: 0 }
+    }
+    orders.forEach((o) => {
+      const key = o.created_at.split('T')[0]
+      if (days[key]) {
+        days[key].total++
+        if (['completado', 'entregado'].includes(o.status)) days[key].completados++
+      }
+    })
+    return Object.values(days)
+  }, [orders])
+
+  // Status distribution for pie chart
+  const statusSlices = useMemo(() => [
+    { label: 'Pendiente', value: stats.pendientes, color: '#FBBF24' },
+    { label: 'En proceso', value: stats.enProceso, color: '#60A5FA' },
+    { label: 'Completado/Entregado', value: stats.completados, color: '#34D399' },
+    { label: 'Cancelado', value: stats.cancelados, color: '#F87171' },
+  ].filter((s) => s.value > 0), [stats])
 
   // Pedidos por mes (últimos 6 meses)
   const byMonth = useMemo(() => {
@@ -158,6 +253,31 @@ export default function AdminReportsPage() {
             <p className={`text-3xl font-bold ${stats.vencidos > 0 ? 'text-red-600' : 'text-gray-400'}`}>
               {stats.vencidos}
             </p>
+          </div>
+        </div>
+
+        {/* Charts row */}
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6'>
+          {/* Daily orders bar chart (last 14 days) */}
+          <div className='bg-white shadow rounded-lg p-6'>
+            <div className='flex items-center gap-2 mb-5'>
+              <BarChart3 className='h-5 w-5 text-gray-400' />
+              <h2 className='text-base font-semibold text-gray-900'>Pedidos últimos 14 días</h2>
+            </div>
+            <DailyBarChart data={byDay} />
+            <div className='mt-4 flex gap-4 text-xs text-gray-500'>
+              <span className='flex items-center gap-1'><span className='w-3 h-3 rounded-sm bg-blue-100 inline-block' /> Total</span>
+              <span className='flex items-center gap-1'><span className='w-3 h-3 rounded-sm bg-green-400 inline-block' /> Completados</span>
+            </div>
+          </div>
+
+          {/* Status pie chart */}
+          <div className='bg-white shadow rounded-lg p-6'>
+            <div className='flex items-center gap-2 mb-5'>
+              <Package className='h-5 w-5 text-gray-400' />
+              <h2 className='text-base font-semibold text-gray-900'>Distribución por estado</h2>
+            </div>
+            <StatusPieChart slices={statusSlices} />
           </div>
         </div>
 

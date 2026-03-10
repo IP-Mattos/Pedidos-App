@@ -144,9 +144,20 @@ export function OrderCard({ order, isAdmin = false, onRequestCancel }: OrderCard
           )}
 
           {order.customer_address && (
-            <div className='flex items-center text-sm text-gray-600'>
-              <MapPin className='w-4 h-4 mr-2' />
-              <span>{order.customer_address}</span>
+            <div className='flex items-start text-sm text-gray-600'>
+              <MapPin className='w-4 h-4 mr-2 mt-0.5 flex-shrink-0' />
+              <span className='flex-1'>
+                {order.customer_address}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='ml-2 inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800'
+                >
+                  <MapPin className='h-3 w-3' />
+                  Ver en mapa
+                </a>
+              </span>
             </div>
           )}
         </div>

@@ -2,18 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Filter, Package, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, Filter, Package, AlertCircle, ChevronLeft, ChevronRight, CheckSquare, Square, ChevronDown } from 'lucide-react'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { OrderCard } from '@/components/orders/order-card'
 import { useOrders } from '@/hooks/use-orders'
 import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { OrdersService } from '@/lib/services/order-services'
 import toast from 'react-hot-toast'
 
 export default function AdminOrdersPage() {
-  const { orders, loading, error } = useOrders()
+  const { orders, loading, error, refetch } = useOrders()
   const { profile } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -23,6 +24,11 @@ export default function AdminOrdersPage() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 3
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkStatus, setBulkStatus] = useState('completado')
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false)
 
   if (profile?.role !== 'admin') {
     return (
@@ -56,17 +62,6 @@ export default function AdminOrdersPage() {
     )
   }
 
-  const totalPages = Math.ceil(
-    orders.filter((order) => {
-      const matchesSearch =
-        order.nombre_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.id.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter
-      const entrega = order.fecha_entrega.split('T')[0]
-      return matchesSearch && matchesStatus && (!dateFrom || entrega >= dateFrom) && (!dateTo || entrega <= dateTo)
-    }).length / PAGE_SIZE
-  )
-
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.nombre_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,6 +75,7 @@ export default function AdminOrdersPage() {
     return matchesSearch && matchesStatus && matchesFrom && matchesTo
   })
 
+  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE)
   const paginatedOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const stats = {
@@ -110,38 +106,103 @@ export default function AdminOrdersPage() {
     }
   }
 
+  // Bulk selection helpers
+  const allPageIds = paginatedOrders.map((o) => o.id)
+  const allPageSelected = allPageIds.length > 0 && allPageIds.every((id) => selectedIds.has(id))
+  const somePageSelected = allPageIds.some((id) => selectedIds.has(id))
+
+  const toggleSelectAll = () => {
+    if (allPageSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        allPageIds.forEach((id) => next.delete(id))
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        allPageIds.forEach((id) => next.add(id))
+        return next
+      })
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleBulkUpdate = async () => {
+    if (selectedIds.size === 0) return
+    setIsBulkUpdating(true)
+    try {
+      await OrdersService.bulkUpdateStatus(Array.from(selectedIds), bulkStatus)
+      toast.success(`${selectedIds.size} pedido(s) actualizados a "${bulkStatus}"`)
+      setSelectedIds(new Set())
+      await refetch()
+    } catch {
+      toast.error('Error al actualizar pedidos')
+    } finally {
+      setIsBulkUpdating(false)
+    }
+  }
+
   return (
     <MainLayout>
       {/* Confirm cancel modal */}
-      {pendingCancelId && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-          <div className='bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4'>
-            <div className='flex items-center gap-3 mb-4'>
-              <AlertCircle className='h-6 w-6 text-red-500 flex-shrink-0' />
-              <h3 className='text-base font-semibold text-gray-900'>¿Cancelar este pedido?</h3>
-            </div>
-            <p className='text-sm text-gray-500 mb-6'>Podés revertirlo luego desde el detalle si es necesario.</p>
-            <div className='flex justify-end gap-3'>
-              <button
-                onClick={() => setPendingCancelId(null)}
-                disabled={isCancelling}
-                className='px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50'
+      <ConfirmDialog
+        open={!!pendingCancelId}
+        title='¿Cancelar este pedido?'
+        message='Podés revertirlo luego desde el detalle si es necesario.'
+        confirmLabel={isCancelling ? 'Cancelando...' : 'Sí, cancelar'}
+        onConfirm={handleCancelConfirm}
+        onCancel={() => setPendingCancelId(null)}
+      />
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className='fixed top-0 left-0 right-0 z-40 bg-blue-600 text-white shadow-lg py-3 px-6 flex items-center gap-4'>
+          <span className='font-medium text-sm'>
+            {selectedIds.size} pedido(s) seleccionado(s)
+          </span>
+          <div className='flex items-center gap-2 ml-auto'>
+            <div className='relative'>
+              <select
+                value={bulkStatus}
+                onChange={(e) => setBulkStatus(e.target.value)}
+                className='text-sm bg-blue-700 text-white border border-blue-400 rounded-md px-3 py-1.5 pr-8 focus:outline-none appearance-none'
               >
-                No, volver
-              </button>
-              <button
-                onClick={handleCancelConfirm}
-                disabled={isCancelling}
-                className='px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50'
-              >
-                {isCancelling ? 'Cancelando...' : 'Sí, cancelar'}
-              </button>
+                <option value='pendiente'>Pendiente</option>
+                <option value='en_proceso'>En Proceso</option>
+                <option value='completado'>Completado</option>
+                <option value='pagado'>Pagado</option>
+                <option value='entregado'>Entregado</option>
+                <option value='cancelado'>Cancelado</option>
+              </select>
+              <ChevronDown className='absolute right-2 top-2 h-4 w-4 pointer-events-none' />
             </div>
+            <button
+              onClick={handleBulkUpdate}
+              disabled={isBulkUpdating}
+              className='px-4 py-1.5 text-sm bg-white text-blue-700 font-medium rounded-md hover:bg-blue-50 disabled:opacity-50'
+            >
+              {isBulkUpdating ? 'Aplicando...' : 'Aplicar'}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className='px-3 py-1.5 text-sm border border-blue-400 rounded-md hover:bg-blue-700'
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
 
-      <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
+      <div className={`max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 ${selectedIds.size > 0 ? 'mt-12' : ''}`}>
         {/* Header */}
         <div className='mb-8'>
           <div className='flex items-center justify-between'>
@@ -267,14 +328,52 @@ export default function AdminOrdersPage() {
           </div>
         ) : (
           <>
-            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
+            {/* Seleccionar todo (para la página actual) */}
+            <div className='flex items-center gap-3 mb-3 px-1'>
+              <button
+                onClick={toggleSelectAll}
+                className='flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900'
+              >
+                {allPageSelected ? (
+                  <CheckSquare className='h-4 w-4 text-blue-600' />
+                ) : somePageSelected ? (
+                  <CheckSquare className='h-4 w-4 text-blue-400' />
+                ) : (
+                  <Square className='h-4 w-4 text-gray-400' />
+                )}
+                Seleccionar todo
+              </button>
+              {selectedIds.size > 0 && (
+                <span className='text-xs text-blue-600 font-medium'>
+                  {selectedIds.size} seleccionado(s)
+                </span>
+              )}
+            </div>
+
+            <div className='space-y-4'>
               {paginatedOrders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  isAdmin={true}
-                  onRequestCancel={(orderId) => setPendingCancelId(orderId)}
-                />
+                <div key={order.id} className='relative'>
+                  {/* Checkbox overlay */}
+                  <div className='absolute top-4 left-4 z-10'>
+                    <button
+                      onClick={() => toggleSelect(order.id)}
+                      className='p-0.5 rounded hover:bg-gray-100'
+                    >
+                      {selectedIds.has(order.id) ? (
+                        <CheckSquare className='h-5 w-5 text-blue-600' />
+                      ) : (
+                        <Square className='h-5 w-5 text-gray-400' />
+                      )}
+                    </button>
+                  </div>
+                  <div className={`ml-8 ${selectedIds.has(order.id) ? 'ring-2 ring-blue-300 rounded-lg' : ''}`}>
+                    <OrderCard
+                      order={order}
+                      isAdmin={true}
+                      onRequestCancel={(orderId) => setPendingCancelId(orderId)}
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 

@@ -8,7 +8,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Orders App',
+  title: 'Pedidos Patricia',
   description: 'Sistema de pedidos en tiempo real'
 }
 

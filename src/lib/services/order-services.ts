@@ -363,6 +363,35 @@ export class OrdersService {
     }))
   }
 
+  static async getMyCompletedOrders(workerId: string) {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(
+        `
+        *,
+        creator:profiles!orders_created_by_fkey (
+          full_name,
+          email
+        )
+      `
+      )
+      .eq('assigned_to', workerId)
+      .in('status', ['completado', 'pagado', 'entregado'])
+      .order('updated_at', { ascending: false })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data?.map((order) => ({
+      ...order,
+      lista_productos:
+        typeof order.lista_productos === 'string' ? JSON.parse(order.lista_productos) : order.lista_productos
+    }))
+  }
+
   // Asignar pedido a un worker específico (solo admin, puede sobreescribir)
   static async adminAssignOrder(orderId: string, workerId: string | null) {
     const supabase = createClient()
@@ -441,7 +470,7 @@ export class OrdersService {
     return data
   }
 
-  static async getWorkerRanking() {
+  static async getWorkerRanking(period?: 'today' | 'week' | 'month' | 'all') {
     const supabase = createClient()
 
     const [{ data: workers, error: wErr }, { data: orders, error: oErr }] = await Promise.all([
@@ -457,12 +486,32 @@ export class OrdersService {
 
     const today = new Date().toISOString().split('T')[0]
 
+    // Compute date cutoff for period filter
+    let cutoffDate: string | null = null
+    if (period === 'today') {
+      cutoffDate = today
+    } else if (period === 'week') {
+      const d = new Date()
+      d.setDate(d.getDate() - 7)
+      cutoffDate = d.toISOString().split('T')[0]
+    } else if (period === 'month') {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      cutoffDate = d.toISOString().split('T')[0]
+    }
+
     return (workers || [])
       .map((worker) => {
         const wo = (orders || []).filter((o) => o.assigned_to === worker.id)
-        const completed = wo.filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status))
+        const allCompleted = wo.filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status))
+
+        // Filter completed orders by period
+        const completed = cutoffDate
+          ? allCompleted.filter((o) => o.updated_at && o.updated_at.split('T')[0] >= cutoffDate!)
+          : allCompleted
+
         const inProgress = wo.filter((o) => o.status === 'en_proceso').length
-        const completedToday = completed.filter((o) => o.updated_at?.split('T')[0] === today).length
+        const completedToday = allCompleted.filter((o) => o.updated_at?.split('T')[0] === today).length
 
         const timesMs = completed
           .filter((o) => o.assigned_at && o.updated_at)
@@ -485,6 +534,35 @@ export class OrdersService {
         }
       })
       .sort((a, b) => b.score - a.score)
+  }
+
+  static async getWorkerDetail(workerId: string) {
+    const supabase = createClient()
+
+    const [{ data: profile, error: pErr }, { data: orders, error: oErr }] = await Promise.all([
+      supabase.from('profiles').select('id, full_name, email, role').eq('id', workerId).single(),
+      supabase
+        .from('orders')
+        .select('id, nombre_cliente, status, assigned_at, updated_at, monto_total, lista_productos, notas')
+        .eq('assigned_to', workerId)
+        .order('assigned_at', { ascending: false })
+    ])
+
+    if (pErr) throw new Error(pErr.message)
+    if (oErr) throw new Error(oErr.message)
+
+    return {
+      profile,
+      orders: (orders || []).map((o) => ({
+        ...o,
+        lista_productos:
+          typeof o.lista_productos === 'string' ? JSON.parse(o.lista_productos) : o.lista_productos,
+        durationMs:
+          o.assigned_at && o.updated_at && ['completado', 'pagado', 'entregado'].includes(o.status)
+            ? Math.max(0, new Date(o.updated_at).getTime() - new Date(o.assigned_at).getTime())
+            : null
+      }))
+    }
   }
 
   static async getDeliveryHistory() {
@@ -547,5 +625,65 @@ export class OrdersService {
     }
 
     return data
+  }
+
+  static async bulkUpdateStatus(orderIds: string[], status: string) {
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ status, updated_at: new Date().toISOString() })
+      .in('id', orderIds)
+      .select()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async getDashboardStats() {
+    const supabase = createClient()
+
+    const today = new Date().toISOString().split('T')[0]
+    const todayStart = `${today}T00:00:00.000Z`
+
+    const [{ data: todayOrders, error: tErr }, { data: recentPending, error: rErr }] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('id, status, monto_total, assigned_to, nombre_cliente, created_at')
+        .gte('created_at', todayStart),
+      supabase
+        .from('orders')
+        .select('id, nombre_cliente, status, monto_total, created_at')
+        .eq('status', 'pendiente')
+        .order('created_at', { ascending: false })
+        .limit(5)
+    ])
+
+    if (tErr) throw new Error(tErr.message)
+    if (rErr) throw new Error(rErr.message)
+
+    const allToday = todayOrders || []
+    const totalHoy = allToday.length
+    const pendientesHoy = allToday.filter((o) => o.status === 'pendiente').length
+    const ingresosDia = allToday
+      .filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status))
+      .reduce((sum, o) => sum + (o.monto_total || 0), 0)
+
+    // Workers activos = unique assigned_to in en_proceso today
+    const workersActivosSet = new Set(
+      allToday.filter((o) => o.status === 'en_proceso' && o.assigned_to).map((o) => o.assigned_to)
+    )
+    const workersActivos = workersActivosSet.size
+
+    return {
+      totalHoy,
+      pendientesHoy,
+      ingresosDia,
+      workersActivos,
+      recentPending: recentPending || []
+    }
   }
 }
