@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
   BookOpen, ChevronRight, Package, Users, BarChart3, Trophy, Settings,
-  Plus, Search, Filter, CheckCircle, Clock, Truck, DollarSign, MapPin,
-  Bell, Star, ArrowRight, Hash, Zap, Shield, RefreshCw, Download,
-  Eye, Edit, Trash2, ChevronDown, AlertCircle, History, List
+  Plus, Search, Filter, CheckCircle, Truck, MapPin,
+  Bell, ArrowRight, Hash, Zap, Shield, RefreshCw,
+  Eye, Edit, Trash2, ChevronDown, AlertCircle, List,
+  Sparkles, Camera, FileText, Keyboard, DollarSign
 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
 
@@ -22,6 +23,7 @@ const SECTIONS: Section[] = [
   { id: 'flujo',          label: 'Flujo de un pedido',   icon: ArrowRight },
   { id: 'admin-dash',     label: 'Dashboard (Admin)',    icon: Hash },
   { id: 'crear-pedido',   label: 'Crear pedido',         icon: Plus },
+  { id: 'ia-productos',   label: 'IA para productos',    icon: Sparkles },
   { id: 'admin-pedidos',  label: 'Lista de pedidos',     icon: Package },
   { id: 'admin-detalle',  label: 'Detalle de pedido',    icon: Eye },
   { id: 'ranking',        label: 'Ranking de workers',   icon: Trophy },
@@ -31,18 +33,21 @@ const SECTIONS: Section[] = [
   { id: 'delivery',       label: 'Delivery',             icon: Truck },
   { id: 'config',         label: 'Configuración',        icon: Settings },
   { id: 'notificaciones', label: 'Notificaciones',       icon: Bell },
-  { id: 'tiempo-real',    label: 'Tiempo real',          icon: Zap },
+  { id: 'tiempo-real',   label: 'Tiempo real',           icon: Zap },
+  { id: 'costos',        label: 'Costos del sistema',    icon: DollarSign },
+  { id: 'valor',         label: '¿Por qué vale?',        icon: Zap },
+  { id: 'precios',       label: 'Precios de la app',     icon: Sparkles },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionTitle({ id, icon: Icon, children }: { id: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div id={id} className='flex items-center gap-3 mb-6 pt-2'>
-      <div className='p-2 bg-red-100 rounded-lg'>
-        <Icon className='h-5 w-5 text-red-600' />
+    <div id={id} className='flex items-center gap-3 mb-5 pt-2'>
+      <div className='p-2 bg-red-100 rounded-lg flex-shrink-0'>
+        <Icon className='h-4 w-4 sm:h-5 sm:w-5 text-red-600' />
       </div>
-      <h2 className='text-2xl font-bold text-gray-900'>{children}</h2>
+      <h2 className='text-lg sm:text-2xl font-bold text-gray-900 leading-tight'>{children}</h2>
     </div>
   )
 }
@@ -179,7 +184,7 @@ export default function GuiaPage() {
             <ChevronRight className='h-3.5 w-3.5' />
             <span className='text-gray-700'>Guía de uso</span>
           </div>
-          <h1 className='text-3xl font-bold text-gray-900'>Manual de usuario</h1>
+          <h1 className='text-2xl sm:text-3xl font-bold text-gray-900'>Manual de usuario</h1>
           <p className='text-gray-500 mt-1 text-sm'>Guía completa de todas las funciones de Pedidos Patricia.</p>
         </div>
 
@@ -220,7 +225,7 @@ export default function GuiaPage() {
           </aside>
 
           {/* Content */}
-          <main className='flex-1 min-w-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-8'>
+          <main className='flex-1 min-w-0 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8'>
 
             {/* ── INTRO ── */}
             <SectionTitle id='intro' icon={BookOpen}>Introducción</SectionTitle>
@@ -231,10 +236,12 @@ export default function GuiaPage() {
               El sistema funciona con tres roles bien definidos: el <strong>Administrador</strong> crea y supervisa todo, los <strong>Workers</strong> procesan los pedidos, y el equipo de <strong>Delivery</strong> gestiona el cobro y la entrega.
             </P>
             <FeatureGrid items={[
-              { icon: Zap,      title: 'Tiempo real',      desc: 'Los cambios de estado se reflejan al instante gracias a Supabase Realtime.' },
-              { icon: Shield,   title: 'Roles y accesos',  desc: 'Cada usuario solo ve y puede hacer lo que le corresponde.' },
-              { icon: MapPin,   title: 'Dirección',        desc: 'Autocompletado de dirección restringido a Florida, Uruguay.' },
-              { icon: Bell,     title: 'Notificaciones',   desc: 'Los workers reciben alertas del browser cuando llega un pedido nuevo.' },
+              { icon: Zap,       title: 'Tiempo real',      desc: 'Los cambios de estado se reflejan al instante gracias a Supabase Realtime.' },
+              { icon: Shield,    title: 'Roles y accesos',  desc: 'Cada usuario solo ve y puede hacer lo que le corresponde.' },
+              { icon: MapPin,    title: 'Dirección',        desc: 'Autocompletado de dirección restringido a Florida, Uruguay.' },
+              { icon: Bell,      title: 'Notificaciones',   desc: 'Los workers reciben alertas del browser cuando llega un pedido nuevo.' },
+              { icon: Sparkles,  title: 'IA para productos', desc: 'Pegá un mensaje de WhatsApp o subí una foto y la IA extrae los productos automáticamente.' },
+              { icon: Camera,    title: 'Escaneo de imagen', desc: 'Claude lee listas escritas a mano, tickets o fotos de pedidos y los carga al sistema.' },
             ]} />
 
             <Divider />
@@ -320,17 +327,17 @@ export default function GuiaPage() {
             <P>La página principal del administrador muestra un resumen del estado actual del negocio al entrar al sistema.</P>
 
             <SubTitle>Métricas del día</SubTitle>
-            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4'>
               {[
-                { label: 'Pedidos hoy',     color: 'text-red-600',    bg: 'bg-red-50',     desc: 'Pedidos creados en el día de hoy.' },
+                { label: 'Pedidos hoy',      color: 'text-red-600',     bg: 'bg-red-50',     desc: 'Pedidos creados en el día de hoy.' },
                 { label: 'Ingresos del día', color: 'text-emerald-600', bg: 'bg-emerald-50', desc: 'Suma de pedidos completados/pagados/entregados hoy.' },
-                { label: 'Pendientes',       color: 'text-amber-600',  bg: 'bg-amber-50',   desc: 'Pedidos sin asignar en este momento.' },
-                { label: 'Workers activos',  color: 'text-blue-600',   bg: 'bg-blue-50',    desc: 'Workers con al menos un pedido en proceso.' },
+                { label: 'Pendientes',       color: 'text-amber-600',   bg: 'bg-amber-50',   desc: 'Pedidos sin asignar en este momento.' },
+                { label: 'Workers activos',  color: 'text-blue-600',    bg: 'bg-blue-50',    desc: 'Workers con al menos un pedido en proceso.' },
               ].map((m) => (
                 <div key={m.label} className={`${m.bg} rounded-xl p-3`}>
                   <p className={`text-lg font-bold ${m.color}`}>—</p>
-                  <p className='text-xs font-medium text-gray-700'>{m.label}</p>
-                  <p className='text-xs text-gray-400 mt-1'>{m.desc}</p>
+                  <p className='text-xs font-semibold text-gray-700'>{m.label}</p>
+                  <p className='text-xs text-gray-400 mt-1 leading-snug'>{m.desc}</p>
                 </div>
               ))}
             </div>
@@ -368,6 +375,102 @@ export default function GuiaPage() {
 
             <Divider />
 
+            {/* ── IA PRODUCTOS ── */}
+            <SectionTitle id='ia-productos' icon={Sparkles}>Ingreso de productos con IA</SectionTitle>
+            <P>Al crear o editar un pedido, el panel de productos tiene tres modos de carga. Podés elegir el que más se adapte a cada situación.</P>
+
+            <div className='grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5'>
+              <div className='border border-gray-200 rounded-xl p-4'>
+                <div className='flex items-center gap-2 mb-2'>
+                  <div className='p-1.5 bg-gray-100 rounded-lg'><Keyboard className='h-4 w-4 text-gray-600' /></div>
+                  <span className='text-sm font-semibold text-gray-800'>Manual</span>
+                </div>
+                <p className='text-xs text-gray-500 leading-relaxed'>Ingresás cada producto a mano: nombre, cantidad y precio. Ideal cuando el pedido es corto o ya viene en un formato exacto.</p>
+              </div>
+              <div className='border border-blue-200 bg-blue-50 rounded-xl p-4'>
+                <div className='flex items-center gap-2 mb-2'>
+                  <div className='p-1.5 bg-blue-100 rounded-lg'><FileText className='h-4 w-4 text-blue-600' /></div>
+                  <span className='text-sm font-semibold text-gray-800'>Texto</span>
+                  <span className='text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full'>IA</span>
+                </div>
+                <p className='text-xs text-gray-500 leading-relaxed'>Pegás el mensaje de WhatsApp del cliente tal cual y la IA extrae los productos automáticamente. Entiende cantidades con unidades (2k, 1l, 500g), ítems separados por saltos de línea o comas, y más de un pedido en el mismo texto.</p>
+              </div>
+              <div className='border border-purple-200 bg-purple-50 rounded-xl p-4'>
+                <div className='flex items-center gap-2 mb-2'>
+                  <div className='p-1.5 bg-purple-100 rounded-lg'><Camera className='h-4 w-4 text-purple-600' /></div>
+                  <span className='text-sm font-semibold text-gray-800'>Imagen</span>
+                  <span className='text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full'>IA</span>
+                </div>
+                <p className='text-xs text-gray-500 leading-relaxed'>Subís una foto de una lista escrita a mano, un ticket o cualquier imagen con productos y la IA los extrae automáticamente. Soporta JPG, PNG y WEBP hasta 5MB.</p>
+              </div>
+            </div>
+
+            <SubTitle>Modo Texto — paso a paso</SubTitle>
+            <StepList steps={[
+              { title: 'Cambiá a la pestaña "Texto"', desc: 'Hacé click en el tab "Texto" arriba del panel de productos.' },
+              { title: 'Pegá el mensaje del cliente', desc: 'Copiá el mensaje de WhatsApp y pegalo en el área de texto. No hace falta limpiarlo — la IA ignora saludos, métodos de pago y otros textos que no son productos.' },
+              { title: 'Hacé click en "Analizar con IA"', desc: 'La IA procesa el texto y muestra una vista previa con los productos detectados, sus cantidades y precios (si los había).' },
+              { title: 'Revisá y confirmá', desc: 'Si los productos están bien, hacé click en "Agregar todos". Si algo no coincide, podés descartar y ajustarlo manualmente.' },
+            ]} />
+
+            <SubTitle>Modo Imagen — paso a paso</SubTitle>
+            <StepList steps={[
+              { title: 'Cambiá a la pestaña "Imagen"', desc: 'Hacé click en el tab "Imagen".' },
+              { title: 'Subí la foto', desc: 'Hacé click en el área de carga o arrastrá la imagen. La IA analiza la imagen automáticamente ni bien se sube.' },
+              { title: 'Esperá el análisis', desc: 'Aparece un indicador de carga. El análisis demora unos segundos.' },
+              { title: 'Revisá y confirmá', desc: 'Igual que en modo Texto — revisá los productos detectados y confirmá para agregarlos al pedido.' },
+            ]} />
+
+            <SubTitle>Ejemplos de texto que entiende la IA</SubTitle>
+            <div className='bg-gray-900 rounded-xl px-4 py-4 mb-4 overflow-x-auto'>
+              <pre className='text-emerald-300 font-mono text-xs leading-relaxed whitespace-pre'>{`3 f nix cola 2lts / 4 f escudo / 25 leche
+6 bio top 3 durazno 3 frutilla
+jugo maxi 1lts 2 durazno 2 manzana 2 naranja
+2 yerba Baldo de kilo / 3 yerba Baldo de 1/2
+1 paquete harina 0000 x5 kilos
+6 arvejas (baratas)
+4 pasta dental Kolynos 180gms
+1/2 salame / 3 paté lengua
+2 tallarín 1kg San Ignacio / 3 tallarín de 1/2
+En otra boleta
+10 wafles surtidos (baratos)`}</pre>
+            </div>
+            <InfoBox type='tip'>La IA reconoce marcas uruguayas (Puritas, Condesa, Baldo, Canaria, Urca, San Ignacio...), entiende "f" como funda/pack, "de 1/2"/"de kilo" como tamaño, y "/" como separador de ítems. Las notas entre paréntesis como "(baratos)" se mantienen en el nombre para que el worker sepa qué elegir.</InfoBox>
+
+            {/* Disclaimer IA */}
+            <div className='mt-6 border border-amber-200 bg-amber-50 rounded-xl p-5'>
+              <div className='flex items-start gap-3'>
+                <div className='p-2 bg-amber-100 rounded-lg flex-shrink-0'>
+                  <DollarSign className='h-4 w-4 text-amber-600' />
+                </div>
+                <div>
+                  <h3 className='text-sm font-bold text-amber-900 mb-1'>Disclaimer — Uso de IA y costos</h3>
+                  <p className='text-xs text-amber-800 leading-relaxed mb-3'>
+                    Los modos <strong>Texto</strong> e <strong>Imagen</strong> usan la API de Claude (Anthropic) para analizar el contenido. Esto requiere una <strong>ANTHROPIC_API_KEY</strong> configurada en el servidor y tiene un costo por uso según la cantidad de tokens procesados.
+                  </p>
+                  <p className='text-xs text-amber-700 font-semibold mb-2'>Estimación de costos para 1.000 pedidos/mes:</p>
+                  <div className='grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3'>
+                    {[
+                      { label: 'Solo texto', usd: '≈ U$S 1,70', detail: '~900 tokens de entrada + ~250 de salida por pedido' },
+                      { label: 'Solo imagen', usd: '≈ U$S 3,20', detail: '~2.750 tokens de entrada (imagen) + ~250 de salida por pedido' },
+                      { label: 'Mixto (50/50)', usd: '≈ U$S 2,50', detail: 'Combinando texto e imagen en partes iguales' },
+                    ].map((c) => (
+                      <div key={c.label} className='bg-white rounded-lg p-3 border border-amber-100'>
+                        <p className='text-xs font-semibold text-gray-700 mb-1'>{c.label}</p>
+                        <p className='text-lg font-bold text-amber-700'>{c.usd}</p>
+                        <p className='text-xs text-gray-400 leading-snug mt-1'>{c.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className='text-xs text-amber-700 leading-relaxed'>
+                    Modelo utilizado: <strong>Claude Haiku 4.5</strong> — el más económico de Anthropic (U$S 0,80/millón tokens entrada · U$S 4,00/millón tokens salida). Los precios son estimativos y pueden variar según el largo de los mensajes y las imágenes. El modo <strong>Manual</strong> no tiene ningún costo de IA.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Divider />
+
             {/* ── LISTA PEDIDOS ── */}
             <SectionTitle id='admin-pedidos' icon={Package}>Lista de pedidos</SectionTitle>
             <P>Accedé desde <strong>Gestión → Pedidos</strong>. Muestra todos los pedidos del sistema con filtros avanzados, búsqueda y paginación.</P>
@@ -401,7 +504,7 @@ export default function GuiaPage() {
             <P>Al hacer click en cualquier pedido de la lista se abre su página de detalle. Desde aquí el admin puede ver toda la información y realizar acciones sobre el pedido.</P>
 
             <SubTitle>Información visible</SubTitle>
-            <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-4 list-disc'>
+            <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-3 sm:ml-4 list-disc'>
               <li>Nombre del cliente, teléfono y dirección (con botón "Ver en mapa")</li>
               <li>Lista de productos con cantidad, precio unitario y total</li>
               <li>Monto total del pedido</li>
@@ -428,8 +531,8 @@ export default function GuiaPage() {
             <P>Accedé desde <strong>Gestión → Ranking</strong>. Muestra el rendimiento de todos los workers ordenados por puntuación.</P>
 
             <SubTitle>Fórmula de puntuación</SubTitle>
-            <div className='bg-gray-900 rounded-xl px-5 py-4 mb-4'>
-              <p className='text-emerald-400 font-mono text-sm text-center'>Score = Completados × 10.000 − (Tiempo promedio en minutos)</p>
+            <div className='bg-gray-900 rounded-xl px-4 py-4 mb-4 overflow-x-auto'>
+              <p className='text-emerald-400 font-mono text-xs sm:text-sm text-center whitespace-nowrap'>Score = Completados × 10.000 − (Tiempo promedio en minutos)</p>
             </div>
             <P>El volumen manda: completar más pedidos siempre suma más. El tiempo promedio actúa como desempate — entre dos workers con la misma cantidad, gana el más rápido.</P>
 
@@ -578,6 +681,282 @@ export default function GuiaPage() {
             <P>El punto verde animado en el ranking indica que la conexión en tiempo real está activa. Si hay problemas de conexión, podés usar el botón de actualizar manual.</P>
 
             <InfoBox type='tip'>El sistema también tiene un refresco automático cada 30 segundos como respaldo, por si la conexión realtime se interrumpe momentáneamente.</InfoBox>
+
+            <Divider />
+
+            {/* ── COSTOS ── */}
+            <SectionTitle id='costos' icon={DollarSign}>Costos del sistema</SectionTitle>
+            <P>El sistema usa dos servicios externos con costos independientes.</P>
+
+            {/* Tabla de servicios */}
+            <div className='overflow-x-auto mb-5'>
+              <table className='w-full text-sm border-collapse'>
+                <thead>
+                  <tr className='bg-gray-50 border-b border-gray-200'>
+                    <th className='text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>Servicio</th>
+                    <th className='text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>Función</th>
+                    <th className='text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>Gratuito</th>
+                    <th className='text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>Pago</th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-gray-100'>
+                  {[
+                    { svc: 'Supabase', fn: 'Base de datos + Auth', free: '$0 — 500 MB DB, 50 MB storage, 50.000 usuarios', paid: '$25 USD/mes — Pro (8 GB DB, backups diarios, SLA)' },
+                    { svc: 'Anthropic Claude', fn: 'IA para parsear pedidos', free: 'Sin free tier — pay-per-use desde el primer token', paid: '~$1,70–$3,20 USD/1.000 pedidos (Haiku 4.5)' },
+                  ].map((r) => (
+                    <tr key={r.svc} className='hover:bg-gray-50'>
+                      <td className='px-4 py-3 font-semibold text-gray-800 text-xs'>{r.svc}</td>
+                      <td className='px-4 py-3 text-xs text-gray-500'>{r.fn}</td>
+                      <td className='px-4 py-3 text-xs text-emerald-700'>{r.free}</td>
+                      <td className='px-4 py-3 text-xs text-blue-700'>{r.paid}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <SubTitle>Escenarios de costo mensual</SubTitle>
+            <div className='grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4'>
+              {[
+                {
+                  label: 'Mínimo',
+                  total: '≈ U$S 2–3',
+                  color: 'border-emerald-200 bg-emerald-50',
+                  badge: 'bg-emerald-100 text-emerald-700',
+                  items: ['Supabase Free (gratis)', 'IA: ~$2–3 (1.000 pedidos/mes)'],
+                  note: 'Apto para empezar sin costo fijo',
+                },
+                {
+                  label: 'Recomendado',
+                  total: '≈ U$S 2–5',
+                  color: 'border-blue-200 bg-blue-50',
+                  badge: 'bg-blue-100 text-blue-700',
+                  items: ['Supabase Free (gratis)', 'IA: ~$2–5/mes'],
+                  note: 'Uso diario normal, sin sorpresas',
+                },
+                {
+                  label: 'Escalado',
+                  total: '≈ U$S 28–30',
+                  color: 'border-purple-200 bg-purple-50',
+                  badge: 'bg-purple-100 text-purple-700',
+                  items: ['Supabase Pro: $25/mes', 'IA: ~$3–5/mes (>2.000 pedidos)'],
+                  note: 'Backups diarios, DB 8 GB, SLA garantizado',
+                },
+              ].map((s) => (
+                <div key={s.label} className={`border rounded-xl p-4 ${s.color}`}>
+                  <div className='flex items-center justify-between mb-2'>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.badge}`}>{s.label}</span>
+                    <span className='text-lg font-bold text-gray-900'>{s.total}</span>
+                  </div>
+                  <ul className='space-y-1 mb-2'>
+                    {s.items.map((i) => (
+                      <li key={i} className='flex items-start gap-1.5 text-xs text-gray-600'>
+                        <CheckCircle className='h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5' />{i}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className='text-xs text-gray-400 italic'>{s.note}</p>
+                </div>
+              ))}
+            </div>
+            <InfoBox type='tip'>El modo Manual de productos no consume IA. Si los clientes mandan mensajes de texto estandarizados podés usar IA solo cuando sea necesario y reducir el costo a centavos por mes.</InfoBox>
+
+            <Divider />
+
+            {/* ── VALOR ── */}
+            <SectionTitle id='valor' icon={Zap}>¿Por qué vale la pena?</SectionTitle>
+            <P>Razones concretas para mostrarle a un cliente por qué su negocio mejora con esta app.</P>
+
+            {/* Problema vs solución */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6'>
+              <div className='border border-red-200 bg-red-50 rounded-xl p-4'>
+                <p className='text-xs font-bold text-red-700 uppercase tracking-wider mb-3'>Sin la app — hoy</p>
+                <ul className='space-y-2'>
+                  {[
+                    'Pedidos por WhatsApp, papel o Excel — se mezclan y se pierden',
+                    'No sabés en qué estado está un pedido sin llamar a alguien',
+                    'Los workers no saben cuál es su prioridad',
+                    'El delivery sale sin saber si el cliente ya pagó',
+                    'No hay registro histórico — si se pierde el cuaderno, se pierde todo',
+                    'Errores al copiar manualmente listas largas de productos',
+                  ].map((i) => (
+                    <li key={i} className='flex items-start gap-2 text-xs text-red-800'>
+                      <span className='mt-0.5 text-red-400 flex-shrink-0'>✕</span>{i}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className='border border-emerald-200 bg-emerald-50 rounded-xl p-4'>
+                <p className='text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3'>Con la app</p>
+                <ul className='space-y-2'>
+                  {[
+                    'Todos los pedidos en un solo lugar, accesibles desde el celular',
+                    'Estado visible en tiempo real para admin, workers y delivery',
+                    'Cada worker solo ve sus pedidos asignados',
+                    'El delivery sabe exactamente qué cobrar y qué entregar',
+                    'Historial completo con fecha, hora y quién hizo cada cambio',
+                    'IA carga los productos desde un mensaje de WhatsApp en segundos',
+                  ].map((i) => (
+                    <li key={i} className='flex items-start gap-2 text-xs text-emerald-800'>
+                      <CheckCircle className='h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5' />{i}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Argumentos de venta */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6'>
+              {[
+                {
+                  icon: Zap,
+                  title: 'Ahorra tiempo real',
+                  body: 'Cargar un pedido de 15 productos con IA tarda menos de 10 segundos. A mano, 2–3 minutos. Con 30 pedidos diarios son casi 2 horas ahorradas por día.',
+                  color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200',
+                },
+                {
+                  icon: Shield,
+                  title: 'Cero errores de comunicación',
+                  body: 'El worker ve la dirección, los productos y las notas exactas. No hay teléfono roto ni malentendidos entre el que toma el pedido y el que lo arma.',
+                  color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200',
+                },
+                {
+                  icon: BarChart3,
+                  title: 'Visibilidad del negocio',
+                  body: 'Reportes diarios, semanales y mensuales. El admin sabe cuánto facturó, cuántos pedidos completó y qué workers rinden más — sin contar nada a mano.',
+                  color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200',
+                },
+                {
+                  icon: Trophy,
+                  title: 'Trabajadores más motivados',
+                  body: 'El ranking gamifica el trabajo. Los workers compiten entre ellos, mejoran su velocidad y el negocio gana sin que el dueño tenga que estar encima.',
+                  color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200',
+                },
+                {
+                  icon: MapPin,
+                  title: 'Control del delivery',
+                  body: 'El delivery sabe exactamente qué pedidos tiene, a qué dirección ir, y si ya está pagado. Menos llamadas, menos confusión, menos pedidos entregados sin cobrar.',
+                  color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200',
+                },
+                {
+                  icon: RefreshCw,
+                  title: 'Escala con el negocio',
+                  body: 'Funciona igual con 5 pedidos por día que con 200. Se agregan workers, se ajustan roles, y todo sigue funcionando sin cambiar nada.',
+                  color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200',
+                },
+              ].map((c) => (
+                <div key={c.title} className={`border rounded-xl p-4 ${c.bg} ${c.border}`}>
+                  <div className='flex items-center gap-2 mb-2'>
+                    <c.icon className={`h-4 w-4 flex-shrink-0 ${c.color}`} />
+                    <span className='text-sm font-semibold text-gray-800'>{c.title}</span>
+                  </div>
+                  <p className='text-xs text-gray-600 leading-relaxed'>{c.body}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Comparativa con alternativas */}
+            <SubTitle>Comparativa con otras opciones</SubTitle>
+            <div className='overflow-x-auto mb-5'>
+              <table className='w-full text-xs border-collapse'>
+                <thead>
+                  <tr className='bg-gray-50 border-b border-gray-200'>
+                    <th className='text-left px-3 py-2.5 font-semibold text-gray-500'></th>
+                    <th className='text-center px-3 py-2.5 font-semibold text-gray-500'>WhatsApp + papel</th>
+                    <th className='text-center px-3 py-2.5 font-semibold text-gray-500'>Excel / Google Sheets</th>
+                    <th className='text-center px-3 py-2.5 font-semibold text-gray-500 bg-red-50 text-red-700'>Esta app</th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-gray-100'>
+                  {[
+                    ['Roles y permisos por usuario', '✕', '✕', '✓'],
+                    ['Estado en tiempo real', '✕', '✕', '✓'],
+                    ['IA para cargar productos', '✕', '✕', '✓'],
+                    ['Historial con auditoría', '✕', 'Parcial', '✓'],
+                    ['Ranking y métricas de workers', '✕', 'Manual', '✓'],
+                    ['Notificaciones al worker', '✕', '✕', '✓'],
+                    ['Acceso desde celular', '✓', 'Parcial', '✓'],
+                    ['Reportes automáticos', '✕', 'Manual', '✓'],
+                    ['Personalización de marca', '—', '—', '✓ (Pro)'],
+                  ].map(([feat, ...vals]) => (
+                    <tr key={feat} className='hover:bg-gray-50'>
+                      <td className='px-3 py-2 text-gray-700 font-medium'>{feat}</td>
+                      {vals.map((v, i) => (
+                        <td key={i} className={`px-3 py-2 text-center font-medium ${v === '✓' ? 'text-emerald-600' : v === '✕' ? 'text-red-400' : 'text-gray-400'} ${i === 2 ? 'bg-red-50' : ''}`}>{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Divider />
+
+            {/* ── PRECIOS ── */}
+            <SectionTitle id='precios' icon={Sparkles}>Presentación de precios</SectionTitle>
+            <P>Referencia de precios para vender Pedidos Patricia como servicio mensual (SaaS). Cubren la infraestructura y dejan margen. Cotización de referencia: <strong>U$S 1 ≈ $43 UYU</strong>.</P>
+
+            {/* Setup inicial */}
+            <div className='bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-5 mb-6 text-white'>
+              <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4'>
+                <div>
+                  <p className='text-xs text-gray-400 uppercase tracking-wider mb-1'>Pago único · Una sola vez</p>
+                  <h3 className='text-base font-bold'>Setup & Configuración inicial</h3>
+                  <p className='text-xs text-gray-400 mt-0.5'>Incluye todo para arrancar desde cero</p>
+                </div>
+                <div className='text-right'>
+                  <p className='text-3xl font-black text-white'>U$S 200</p>
+                  <p className='text-sm font-semibold text-emerald-400'>≈ $8.600 UYU</p>
+                </div>
+              </div>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5'>
+                {[
+                  'Alta de usuarios iniciales (admin, workers, delivery)',
+                  'Capacitación presencial o videollamada (1 hora)',
+                  'Manual de usuario personalizado incluido',
+                ].map((i) => (
+                  <div key={i} className='flex items-start gap-2 text-xs text-gray-300'>
+                    <CheckCircle className='h-3.5 w-3.5 text-emerald-400 flex-shrink-0 mt-0.5' />{i}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Plan mensual único */}
+            <div className='border-2 border-blue-400 rounded-2xl overflow-hidden mb-5 max-w-sm'>
+              <div className='px-6 py-5 bg-blue-600'>
+                <p className='text-2xl mb-1'>🏬</p>
+                <p className='text-sm font-bold text-white'>Plan mensual</p>
+                <div className='flex items-end gap-2 mt-1'>
+                  <p className='text-3xl font-black text-white'>U$S 50</p>
+                  <span className='text-blue-100 text-sm mb-0.5'>/mes</span>
+                </div>
+                <p className='text-sm font-semibold text-emerald-300'>≈ $2.150 UYU<span className='text-blue-100 text-xs font-normal ml-1'>/mes</span></p>
+                <p className='text-xs text-blue-100 mt-1.5'>Pedidos y usuarios ilimitados</p>
+              </div>
+              <div className='px-6 py-5 bg-white'>
+                <ul className='space-y-2'>
+                  {[
+                    'Gestión completa de pedidos',
+                    'Roles: admin, worker, delivery',
+                    'IA para texto e imagen',
+                    'Ranking de workers',
+                    'Reportes + exportar PDF',
+                    'Tiempo real',
+                    'Personalización de marca',
+                    'Actualizaciones incluidas',
+                  ].map((f) => (
+                    <li key={f} className='flex items-center gap-2 text-xs text-gray-700'>
+                      <CheckCircle className='h-3.5 w-3.5 text-emerald-500 flex-shrink-0' />{f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <InfoBox type='info'>
+              Los precios en pesos varían con el dólar. Se recomienda cobrar en <strong>dólares</strong> o actualizar la lista cada vez que el tipo de cambio varíe más de $2 UYU. La cotización usada aquí es <strong>U$S 1 = $43 UYU</strong> (marzo 2025).
+            </InfoBox>
 
             {/* Footer */}
             <div className='mt-12 pt-6 border-t border-gray-100 text-center'>

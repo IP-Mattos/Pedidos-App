@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 
 import { MainLayout } from '@/components/layout/main-layout'
-import { ProductList } from '@/components/orders/product-list'
+import { SmartProductInput } from '@/components/orders/smart-product-input'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { OrdersService } from '@/lib/services/order-services'
 import { createOrderSchema, type CreateOrderFormData, type ProductFormData } from '@/lib/validations/orders'
@@ -156,7 +156,7 @@ export default function EditOrderPage() {
           {/* Productos */}
           <div className='bg-white shadow rounded-lg p-6'>
             <h2 className='text-lg font-medium text-gray-900 mb-4'>Productos</h2>
-            <ProductList
+            <SmartProductInput
               products={products}
               onChange={(newProducts) => {
                 setProducts(newProducts)

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Inter } from 'next/font/google'
 import { useAuth } from '@/hooks/use-auth'
+import { useBranding } from '@/hooks/use-branding'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,7 +21,7 @@ const ADMIN_ITEMS = [
   { name: 'Ranking', href: '/admin/ranking', icon: Trophy },
 ]
 
-function BrandLogo() {
+function BrandLogo({ businessName, subtitle }: { businessName: string; subtitle: string }) {
   return (
     <Link href='/'>
       <svg width='180' height='60' viewBox='0 0 180 60' xmlns='http://www.w3.org/2000/svg'>
@@ -30,10 +31,10 @@ function BrandLogo() {
           </style>
         </defs>
         <text x='38' y='18' fill='white' fontFamily='Inter, sans-serif' fontSize='10' letterSpacing='2' fontWeight='300'>
-          Autoservice
+          {subtitle}
         </text>
         <text x='0' y='56' fill='white' fontFamily='UnifrakturCook, serif' fontSize='48' fontWeight='700'>
-          Patricia
+          {businessName}
         </text>
       </svg>
     </Link>
@@ -98,6 +99,7 @@ function AdminDropdown({ pathname }: { pathname: string }) {
 
 export function Navbar() {
   const { user, profile, signOut } = useAuth()
+  const { branding } = useBranding()
   const router = useRouter()
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -116,14 +118,19 @@ export function Navbar() {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
+  const navStyle = {
+    background: `linear-gradient(to right, color-mix(in srgb, ${branding.navColor} 80%, black), color-mix(in srgb, ${branding.navColor} 90%, white 5%), color-mix(in srgb, ${branding.navColor} 80%, black))`,
+    borderBottom: `1px solid color-mix(in srgb, ${branding.navColor} 60%, black)`
+  }
+
   return (
-    <nav className={`${inter.className} sticky top-0 z-50 border-b border-red-800/80 bg-gradient-to-r from-red-800 via-red-700 to-red-800 shadow-lg`}>
+    <nav className={`${inter.className} sticky top-0 z-50 shadow-lg`} style={navStyle}>
       <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
         <div className='flex min-h-[76px] items-center justify-between gap-4'>
 
           {/* Left: logo + nav */}
           <div className='flex items-center gap-6'>
-            <BrandLogo />
+            <BrandLogo businessName={branding.businessName} subtitle={branding.subtitle} />
 
             {/* Desktop nav */}
             <div className='hidden sm:flex sm:items-center sm:gap-1'>

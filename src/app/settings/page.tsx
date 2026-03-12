@@ -20,7 +20,8 @@ import {
   Edit2,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Store
 } from 'lucide-react'
 import { z } from 'zod'
 
@@ -28,6 +29,7 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { useAuth } from '@/hooks/use-auth'
 import { ProfileService } from '@/lib/services/profile-services'
 import { useTheme } from '@/components/providers/theme-provider'
+import { useBranding } from '@/hooks/use-branding'
 
 // Esquemas de validación
 const preferencesSchema = z.object({
@@ -67,7 +69,10 @@ interface UserStats {
 export default function SettingsPage() {
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { setTheme } = useTheme()
+  const { branding, saveBranding } = useBranding()
   const [activeTab, setActiveTab] = useState('profile')
+  const [brandingForm, setBrandingForm] = useState({ businessName: '', subtitle: '', navColor: '' })
+  const [brandingSaving, setBrandingSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [userStats, setUserStats] = useState<UserStats | null>(null)
@@ -136,6 +141,11 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile) resetProfile({ full_name: profile.full_name })
   }, [profile, resetProfile])
+
+  // Sincronizar brandingForm con el hook al montar
+  useEffect(() => {
+    setBrandingForm({ businessName: branding.businessName, subtitle: branding.subtitle, navColor: branding.navColor })
+  }, [branding.businessName, branding.subtitle, branding.navColor])
 
   // Cargar estadísticas cuando se abre la tab
   useEffect(() => {
@@ -224,6 +234,7 @@ export default function SettingsPage() {
     { id: 'preferences', name: 'Preferencias', icon: Palette },
     { id: 'notifications', name: 'Notificaciones', icon: Bell },
     ...(profile.role === 'worker' ? [{ id: 'stats', name: 'Estadísticas', icon: BarChart3 }] : []),
+    ...(profile.role === 'admin' ? [{ id: 'branding', name: 'Marca', icon: Store }] : []),
     { id: 'security', name: 'Seguridad', icon: Shield }
   ]
 
@@ -588,6 +599,81 @@ export default function SettingsPage() {
                 ) : (
                   <p className='text-sm text-gray-500 text-center py-6'>No se pudieron cargar las estadísticas.</p>
                 )}
+              </div>
+            )}
+
+            {/* Tab: Marca (solo admin) */}
+            {activeTab === 'branding' && profile.role === 'admin' && (
+              <div className='bg-white shadow rounded-lg p-6'>
+                <h2 className='text-lg font-medium text-gray-900 mb-1'>Personalización de Marca</h2>
+                <p className='text-sm text-gray-500 mb-6'>Cambiá el nombre del negocio, el subtítulo y el color de la barra de navegación.</p>
+
+                <div className='space-y-5 max-w-md'>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Nombre del negocio</label>
+                    <input
+                      type='text'
+                      value={brandingForm.businessName}
+                      onChange={(e) => setBrandingForm((f) => ({ ...f, businessName: e.target.value }))}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      placeholder='Patricia'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Subtítulo</label>
+                    <input
+                      type='text'
+                      value={brandingForm.subtitle}
+                      onChange={(e) => setBrandingForm((f) => ({ ...f, subtitle: e.target.value }))}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      placeholder='Autoservice'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Color de la barra</label>
+                    <div className='flex items-center gap-3'>
+                      <input
+                        type='color'
+                        value={brandingForm.navColor}
+                        onChange={(e) => setBrandingForm((f) => ({ ...f, navColor: e.target.value }))}
+                        className='h-10 w-16 cursor-pointer rounded border border-gray-300 p-0.5'
+                      />
+                      <input
+                        type='text'
+                        value={brandingForm.navColor}
+                        onChange={(e) => setBrandingForm((f) => ({ ...f, navColor: e.target.value }))}
+                        className='w-32 px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+                        placeholder='#9f1239'
+                      />
+                      <div
+                        className='h-10 flex-1 rounded-md border border-gray-200'
+                        style={{ background: `linear-gradient(to right, ${brandingForm.navColor}, color-mix(in srgb, ${brandingForm.navColor} 80%, white))` }}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={brandingSaving}
+                    onClick={async () => {
+                      setBrandingSaving(true)
+                      try {
+                        saveBranding({ businessName: brandingForm.businessName.trim() || 'Patricia', subtitle: brandingForm.subtitle.trim() || 'Autoservice', navColor: brandingForm.navColor || '#9f1239' })
+                        toast.success('Marca actualizada')
+                      } finally {
+                        setBrandingSaving(false)
+                      }
+                    }}
+                    className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
+                  >
+                    {brandingSaving ? (
+                      <><Loader2 className='h-4 w-4 mr-2 animate-spin' />Guardando...</>
+                    ) : (
+                      <><Save className='h-4 w-4 mr-2' />Guardar Marca</>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
