@@ -19,21 +19,28 @@ export class OrdersService {
     }
 
     // Crear el pedido
+    const insertPayload: Record<string, unknown> = {
+      nombre_cliente: orderData.nombre_cliente,
+      customer_phone: orderData.customer_phone || null,
+      customer_address: orderData.customer_address || null,
+      lista_productos: JSON.stringify(orderData.productos),
+      fecha_entrega: orderData.fecha_entrega,
+      esta_pagado: orderData.esta_pagado,
+      metodo_pago: orderData.metodo_pago,
+      monto_total: total,
+      status: 'pendiente',
+      notas: orderData.notas || null,
+      created_by: user.id
+    }
+
+    // Columnas opcionales (requieren migración SQL previa)
+    if (orderData.requiere_boleta !== undefined) insertPayload.requiere_boleta = orderData.requiere_boleta
+    if (orderData.rut_cliente) insertPayload.rut_cliente = orderData.rut_cliente
+    if (orderData.es_ingreso !== undefined) insertPayload.es_ingreso = orderData.es_ingreso
+
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert({
-        nombre_cliente: orderData.nombre_cliente,
-        customer_phone: orderData.customer_phone || null,
-        customer_address: orderData.customer_address || null,
-        lista_productos: JSON.stringify(orderData.productos),
-        fecha_entrega: orderData.fecha_entrega,
-        esta_pagado: orderData.esta_pagado,
-        metodo_pago: orderData.metodo_pago,
-        monto_total: total,
-        status: 'pendiente',
-        notas: orderData.notas || null,
-        created_by: user.id
-      })
+      .insert(insertPayload)
       .select()
       .single()
 

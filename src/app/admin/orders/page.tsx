@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Filter, Package, AlertCircle, ChevronLeft, ChevronRight, CheckSquare, Square, ChevronDown } from 'lucide-react'
+import { Plus, Search, Filter, Package, ChevronLeft, ChevronRight, ClipboardList, Clock, CheckCircle, AlertTriangle } from 'lucide-react'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { OrderCard } from '@/components/orders/order-card'
@@ -14,7 +14,7 @@ import { OrdersService } from '@/lib/services/order-services'
 import toast from 'react-hot-toast'
 
 export default function AdminOrdersPage() {
-  const { orders, loading, error, refetch } = useOrders()
+  const { orders, loading, error } = useOrders()
   const { profile } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -23,12 +23,7 @@ export default function AdminOrdersPage() {
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
   const [page, setPage] = useState(1)
-  const PAGE_SIZE = 3
-
-  // Bulk selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkStatus, setBulkStatus] = useState('completado')
-  const [isBulkUpdating, setIsBulkUpdating] = useState(false)
+  const PAGE_SIZE = 6
 
   if (profile?.role !== 'admin') {
     return (
@@ -78,19 +73,35 @@ export default function AdminOrdersPage() {
   const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE)
   const paginatedOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const stats = {
-    total: orders.length,
-    pendientes: orders.filter((o) => o.status === 'pendiente').length,
-    en_proceso: orders.filter((o) => o.status === 'en_proceso').length,
-    completados: orders.filter((o) => o.status === 'completado').length,
-    pagados: orders.filter((o) => o.status === 'pagado').length,
-    entregados: orders.filter((o) => o.status === 'entregado').length
-  }
-
   const today = new Date().toISOString().split('T')[0]
-  const vencidos = orders.filter(
-    (o) => o.fecha_entrega.split('T')[0] < today && !['pagado', 'entregado', 'cancelado'].includes(o.status)
-  ).length
+  const stats = [
+    {
+      label: 'Total Pedidos',
+      value: orders.length,
+      icon: ClipboardList,
+      iconColor: 'text-blue-400'
+    },
+    {
+      label: 'En Proceso',
+      value: orders.filter((o) => o.status === 'en_proceso').length,
+      icon: Clock,
+      iconColor: 'text-yellow-400'
+    },
+    {
+      label: 'Completados',
+      value: orders.filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status)).length,
+      icon: CheckCircle,
+      iconColor: 'text-green-400'
+    },
+    {
+      label: 'Vencidos',
+      value: orders.filter(
+        (o) => o.fecha_entrega.split('T')[0] < today && !['pagado', 'entregado', 'cancelado'].includes(o.status)
+      ).length,
+      icon: AlertTriangle,
+      iconColor: 'text-red-400'
+    }
+  ]
 
   const handleCancelConfirm = async () => {
     if (!pendingCancelId) return
@@ -106,54 +117,8 @@ export default function AdminOrdersPage() {
     }
   }
 
-  // Bulk selection helpers
-  const allPageIds = paginatedOrders.map((o) => o.id)
-  const allPageSelected = allPageIds.length > 0 && allPageIds.every((id) => selectedIds.has(id))
-  const somePageSelected = allPageIds.some((id) => selectedIds.has(id))
-
-  const toggleSelectAll = () => {
-    if (allPageSelected) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        allPageIds.forEach((id) => next.delete(id))
-        return next
-      })
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        allPageIds.forEach((id) => next.add(id))
-        return next
-      })
-    }
-  }
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const handleBulkUpdate = async () => {
-    if (selectedIds.size === 0) return
-    setIsBulkUpdating(true)
-    try {
-      await OrdersService.bulkUpdateStatus(Array.from(selectedIds), bulkStatus)
-      toast.success(`${selectedIds.size} pedido(s) actualizados a "${bulkStatus}"`)
-      setSelectedIds(new Set())
-      await refetch()
-    } catch {
-      toast.error('Error al actualizar pedidos')
-    } finally {
-      setIsBulkUpdating(false)
-    }
-  }
-
   return (
     <MainLayout>
-      {/* Confirm cancel modal */}
       <ConfirmDialog
         open={!!pendingCancelId}
         title='¿Cancelar este pedido?'
@@ -163,46 +128,7 @@ export default function AdminOrdersPage() {
         onCancel={() => setPendingCancelId(null)}
       />
 
-      {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
-        <div className='fixed top-0 left-0 right-0 z-40 bg-blue-600 text-white shadow-lg py-3 px-6 flex items-center gap-4'>
-          <span className='font-medium text-sm'>
-            {selectedIds.size} pedido(s) seleccionado(s)
-          </span>
-          <div className='flex items-center gap-2 ml-auto'>
-            <div className='relative'>
-              <select
-                value={bulkStatus}
-                onChange={(e) => setBulkStatus(e.target.value)}
-                className='text-sm bg-blue-700 text-white border border-blue-400 rounded-md px-3 py-1.5 pr-8 focus:outline-none appearance-none'
-              >
-                <option value='pendiente'>Pendiente</option>
-                <option value='en_proceso'>En Proceso</option>
-                <option value='completado'>Completado</option>
-                <option value='pagado'>Pagado</option>
-                <option value='entregado'>Entregado</option>
-                <option value='cancelado'>Cancelado</option>
-              </select>
-              <ChevronDown className='absolute right-2 top-2 h-4 w-4 pointer-events-none' />
-            </div>
-            <button
-              onClick={handleBulkUpdate}
-              disabled={isBulkUpdating}
-              className='px-4 py-1.5 text-sm bg-white text-blue-700 font-medium rounded-md hover:bg-blue-50 disabled:opacity-50'
-            >
-              {isBulkUpdating ? 'Aplicando...' : 'Aplicar'}
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className='px-3 py-1.5 text-sm border border-blue-400 rounded-md hover:bg-blue-700'
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className={`max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 ${selectedIds.size > 0 ? 'mt-12' : ''}`}>
+      <div className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
         {/* Header */}
         <div className='mb-8'>
           <div className='flex items-center justify-between'>
@@ -220,21 +146,27 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Estadísticas */}
-        <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8'>
-          {[
-            { label: 'Total', value: stats.total, color: 'text-gray-900', bg: 'bg-white' },
-            { label: 'Pendientes', value: stats.pendientes, color: 'text-yellow-700', bg: 'bg-yellow-50' },
-            { label: 'En Proceso', value: stats.en_proceso, color: 'text-blue-700', bg: 'bg-blue-50' },
-            { label: 'Completados', value: stats.completados, color: 'text-green-700', bg: 'bg-green-50' },
-            { label: 'Pagados', value: stats.pagados, color: 'text-blue-800', bg: 'bg-blue-50' },
-            { label: 'Entregados', value: stats.entregados, color: 'text-green-800', bg: 'bg-green-100' },
-            { label: 'Vencidos', value: vencidos, color: 'text-red-700', bg: 'bg-red-50' }
-          ].map((s) => (
-            <div key={s.label} className={`${s.bg} shadow rounded-lg p-4`}>
-              <p className='text-xs text-gray-500'>{s.label}</p>
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-            </div>
-          ))}
+        <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
+          {stats.map((s) => {
+            const Icon = s.icon
+            return (
+              <div key={s.label} className='bg-white overflow-hidden shadow rounded-lg'>
+                <div className='p-5'>
+                  <div className='flex items-center'>
+                    <div className='flex-shrink-0'>
+                      <Icon className={`h-6 w-6 ${s.iconColor}`} />
+                    </div>
+                    <div className='ml-5 w-0 flex-1'>
+                      <dl>
+                        <dt className='text-sm font-medium text-gray-500 truncate'>{s.label}</dt>
+                        <dd className='text-lg font-medium text-gray-900'>{s.value}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {/* Filtros */}
@@ -309,7 +241,7 @@ export default function AdminOrdersPage() {
 
         {/* Lista de pedidos */}
         {filteredOrders.length === 0 ? (
-          <div className='text-center py-12'>
+          <div className='text-center py-12 bg-white rounded-lg shadow'>
             <Package className='mx-auto h-12 w-12 text-gray-400' />
             <h3 className='mt-2 text-sm font-medium text-gray-900'>No hay pedidos</h3>
             <p className='mt-1 text-sm text-gray-500'>
@@ -328,52 +260,14 @@ export default function AdminOrdersPage() {
           </div>
         ) : (
           <>
-            {/* Seleccionar todo (para la página actual) */}
-            <div className='flex items-center gap-3 mb-3 px-1'>
-              <button
-                onClick={toggleSelectAll}
-                className='flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900'
-              >
-                {allPageSelected ? (
-                  <CheckSquare className='h-4 w-4 text-blue-600' />
-                ) : somePageSelected ? (
-                  <CheckSquare className='h-4 w-4 text-blue-400' />
-                ) : (
-                  <Square className='h-4 w-4 text-gray-400' />
-                )}
-                Seleccionar todo
-              </button>
-              {selectedIds.size > 0 && (
-                <span className='text-xs text-blue-600 font-medium'>
-                  {selectedIds.size} seleccionado(s)
-                </span>
-              )}
-            </div>
-
-            <div className='space-y-4'>
+            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
               {paginatedOrders.map((order) => (
-                <div key={order.id} className='relative'>
-                  {/* Checkbox overlay */}
-                  <div className='absolute top-4 left-4 z-10'>
-                    <button
-                      onClick={() => toggleSelect(order.id)}
-                      className='p-0.5 rounded hover:bg-gray-100'
-                    >
-                      {selectedIds.has(order.id) ? (
-                        <CheckSquare className='h-5 w-5 text-blue-600' />
-                      ) : (
-                        <Square className='h-5 w-5 text-gray-400' />
-                      )}
-                    </button>
-                  </div>
-                  <div className={`ml-8 ${selectedIds.has(order.id) ? 'ring-2 ring-blue-300 rounded-lg' : ''}`}>
-                    <OrderCard
-                      order={order}
-                      isAdmin={true}
-                      onRequestCancel={(orderId) => setPendingCancelId(orderId)}
-                    />
-                  </div>
-                </div>
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  isAdmin={true}
+                  onRequestCancel={(orderId) => setPendingCancelId(orderId)}
+                />
               ))}
             </div>
 

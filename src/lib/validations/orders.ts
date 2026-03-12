@@ -14,7 +14,10 @@ export const createOrderSchema = z.object({
   metodo_pago: z.enum(['efectivo', 'credito', 'dolares', 'cheque', 'transferencia']),
   esta_pagado: z.boolean(),
   productos: z.array(productSchema).min(1, 'Debe agregar al menos un producto'),
-  notas: z.string().optional()
+  notas: z.string().optional(),
+  requiere_boleta: z.boolean().default(false),
+  rut_cliente: z.string().optional(),
+  es_ingreso: z.boolean().default(false)
 })
 
 export type ProductFormData = z.infer<typeof productSchema>

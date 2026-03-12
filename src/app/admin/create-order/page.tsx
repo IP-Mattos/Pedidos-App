@@ -11,9 +11,12 @@ import Link from 'next/link'
 import { MainLayout } from '@/components/layout/main-layout'
 import { SmartProductInput } from '@/components/orders/smart-product-input'
 import { OrdersService } from '@/lib/services/order-services'
+import { CustomerService } from '@/lib/services/customer-services'
 import { createOrderSchema, type CreateOrderFormData, type ProductFormData } from '@/lib/validations/orders'
 import { useAuth } from '@/hooks/use-auth'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { CustomerSearch } from '@/components/ui/customer-search'
+import type { Customer } from '@/types/database'
 
 export default function CreateOrderPage() {
   const [products, setProducts] = useState<ProductFormData[]>([])
@@ -32,9 +35,24 @@ export default function CreateOrderPage() {
     defaultValues: {
       esta_pagado: false,
       metodo_pago: 'efectivo',
-      fecha_entrega: new Date().toISOString().split('T')[0] // Fecha de hoy
+      fecha_entrega: new Date().toISOString().split('T')[0],
+      requiere_boleta: false,
+      es_ingreso: false
     }
   })
+
+  const nombreCliente = watch('nombre_cliente') ?? ''
+  const requiereBoleta = watch('requiere_boleta') ?? false
+  const esIngreso = watch('es_ingreso') ?? false
+
+  const handleCustomerSelect = (customer: Customer) => {
+    if (customer.phone) setValue('customer_phone', customer.phone)
+    if (customer.address) setValue('customer_address', customer.address)
+    if (customer.rut) {
+      setValue('rut_cliente', customer.rut)
+      setValue('requiere_boleta', true)
+    }
+  }
 
   const onSubmit = async (data: CreateOrderFormData) => {
     if (products.length === 0) {
@@ -43,14 +61,16 @@ export default function CreateOrderPage() {
     }
 
     setIsSubmitting(true)
-
     try {
-      const orderData = {
-        ...data,
-        productos: products
-      }
+      await OrdersService.createOrder({ ...data, productos: products })
 
-      const order = await OrdersService.createOrder(orderData)
+      // Upsert cliente en segundo plano (no bloquea si falla)
+      CustomerService.upsertByName(
+        data.nombre_cliente,
+        data.customer_phone || null,
+        data.customer_address || null,
+        data.requiere_boleta ? (data.rut_cliente || null) : null
+      ).catch(() => {})
 
       toast.success('¡Pedido creado exitosamente!')
       router.push('/admin/orders')
@@ -105,11 +125,10 @@ export default function CreateOrderPage() {
             <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-2'>Nombre del Cliente *</label>
-                <input
-                  type='text'
-                  {...register('nombre_cliente')}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                  placeholder='Nombre completo del cliente'
+                <CustomerSearch
+                  value={nombreCliente}
+                  onChange={(val) => setValue('nombre_cliente', val)}
+                  onSelect={handleCustomerSelect}
                 />
                 {errors.nombre_cliente && <p className='mt-1 text-sm text-red-600'>{errors.nombre_cliente.message}</p>}
               </div>
@@ -143,7 +162,29 @@ export default function CreateOrderPage() {
 
           {/* Detalles del pedido */}
           <div className='bg-white shadow rounded-lg p-6'>
-            <h2 className='text-lg font-medium text-gray-900 mb-4'>Detalles del Pedido</h2>
+            <div className='flex items-center justify-between mb-4'>
+              <h2 className='text-lg font-medium text-gray-900'>Detalles del Pedido</h2>
+              {/* Ingreso toggle */}
+              <label className='flex items-center gap-2 cursor-pointer select-none'>
+                <div className='relative'>
+                  <input
+                    type='checkbox'
+                    id='es_ingreso'
+                    {...register('es_ingreso')}
+                    className='sr-only peer'
+                  />
+                  <div className='w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-orange-500 transition-colors' />
+                  <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5' />
+                </div>
+                <span className='text-sm font-medium text-gray-700'>Es ingreso</span>
+              </label>
+            </div>
+
+            {esIngreso && (
+              <div className='mb-5 flex items-center gap-2 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800'>
+                <span className='font-medium'>Modo ingreso:</span> los campos de pago no aplican para este pedido.
+              </div>
+            )}
 
             <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
               <div>
@@ -156,28 +197,58 @@ export default function CreateOrderPage() {
                 {errors.fecha_entrega && <p className='mt-1 text-sm text-red-600'>{errors.fecha_entrega.message}</p>}
               </div>
 
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>Método de Pago *</label>
-                <select
-                  {...register('metodo_pago')}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                >
-                  <option value='efectivo'>Efectivo</option>
-                  <option value='credito'>Tarjeta de Crédito</option>
-                  <option value='dolares'>Dólares</option>
-                  <option value='cheque'>Cheque</option>
-                  <option value='transferencia'>Transferencia</option>
-                </select>
-              </div>
+              {!esIngreso && (
+                <>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-2'>Método de Pago *</label>
+                    <select
+                      {...register('metodo_pago')}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                    >
+                      <option value='efectivo'>Efectivo</option>
+                      <option value='credito'>Tarjeta de Crédito</option>
+                      <option value='dolares'>Dólares</option>
+                      <option value='cheque'>Cheque</option>
+                      <option value='transferencia'>Transferencia</option>
+                    </select>
+                  </div>
 
-              <div className='flex items-center'>
+                  <div className='flex items-center'>
+                    <input
+                      type='checkbox'
+                      {...register('esta_pagado')}
+                      className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                    />
+                    <label className='ml-2 block text-sm text-gray-700'>¿Ya está pagado?</label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Boleta */}
+            <div className='mt-6 border-t pt-6'>
+              <div className='flex items-center gap-3'>
                 <input
                   type='checkbox'
-                  {...register('esta_pagado')}
+                  id='requiere_boleta'
+                  {...register('requiere_boleta')}
                   className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
                 />
-                <label className='ml-2 block text-sm text-gray-700'>¿Ya está pagado?</label>
+                <label htmlFor='requiere_boleta' className='text-sm font-medium text-gray-700'>
+                  ¿Requiere boleta con RUT?
+                </label>
               </div>
+              {requiereBoleta && (
+                <div className='mt-3 max-w-xs'>
+                  <label className='block text-sm font-medium text-gray-700 mb-2'>RUT del cliente</label>
+                  <input
+                    type='text'
+                    {...register('rut_cliente')}
+                    className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm'
+                    placeholder='Ej: 21.234.567-8'
+                  />
+                </div>
+              )}
             </div>
 
             <div className='mt-6'>
@@ -194,14 +265,10 @@ export default function CreateOrderPage() {
           {/* Botones de acción */}
           <div className='flex justify-end space-x-4'>
             <Link href='/admin/orders'>
-              <button
-                type='button'
-                className='px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'
-              >
+              <button type='button' className='px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'>
                 Cancelar
               </button>
             </Link>
-
             <button
               type='submit'
               disabled={isSubmitting || products.length === 0}

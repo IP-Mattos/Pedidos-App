@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   Package, Users, Settings, LogOut, Plus, List, BarChart3, Menu, X,
-  Trophy, ChevronDown, LayoutDashboard, BookOpen
+  Trophy, ChevronDown, LayoutDashboard, BookOpen, UserRound
 } from 'lucide-react'
 import { Inter } from 'next/font/google'
 import { useAuth } from '@/hooks/use-auth'
@@ -16,6 +16,7 @@ const inter = Inter({ subsets: ['latin'] })
 const ADMIN_ITEMS = [
   { name: 'Crear Pedido', href: '/admin/create-order', icon: Plus },
   { name: 'Pedidos', href: '/admin/orders', icon: Package },
+  { name: 'Clientes', href: '/admin/customers', icon: UserRound },
   { name: 'Usuarios', href: '/admin/users', icon: Users },
   { name: 'Reportes', href: '/admin/reports', icon: BarChart3 },
   { name: 'Ranking', href: '/admin/ranking', icon: Trophy },

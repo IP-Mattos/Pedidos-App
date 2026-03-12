@@ -30,6 +30,9 @@ export interface Order {
   monto_total: number
   status: OrderStatus
   notas?: string | null
+  requiere_boleta?: boolean
+  rut_cliente?: string | null
+  es_ingreso?: boolean
   created_by: string
   assigned_to?: string | null // ✅ Nuevo campo
   assigned_at?: string | null // ✅ Nuevo campo
@@ -38,6 +41,16 @@ export interface Order {
   updated_at: string
   creator?: Profile
   assignee?: Profile // ✅ Relación con worker asignado
+}
+
+export interface Customer {
+  id: string
+  nombre: string
+  phone?: string | null
+  address?: string | null
+  rut?: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface OrderProgress {

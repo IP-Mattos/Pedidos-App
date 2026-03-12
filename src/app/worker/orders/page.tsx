@@ -7,7 +7,8 @@ import { ProgressModal } from '@/components/orders/progress-modal'
 import { useWorkerOrders } from '@/hooks/use-orders'
 import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { Package, Clock, User, CheckCircle, History, Calendar, DollarSign, BellOff, ChevronDown, ChevronUp } from 'lucide-react'
+import Link from 'next/link'
+import { Package, Clock, User, CheckCircle, History, Calendar, DollarSign, BellOff, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 
 export default function WorkerOrdersPage() {
   const { user, profile } = useAuth()
@@ -307,6 +308,13 @@ export default function WorkerOrdersPage() {
                           }`}>
                             {order.status === 'entregado' ? 'Entregado' : order.status === 'pagado' ? 'Pagado' : 'Completado'}
                           </span>
+                          <Link
+                            href={`/worker/orders/${order.id}`}
+                            className='inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium'
+                          >
+                            Ver detalle
+                            <ExternalLink className='h-3 w-3' />
+                          </Link>
                         </div>
                       </div>
                     )
