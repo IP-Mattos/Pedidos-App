@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Check, CheckSquare, Square, Package, AlertTriangle, Edit2, Save, X } from 'lucide-react'
+import { Check, CheckSquare, Square, Package, AlertTriangle, Edit2, Save, X, ArrowLeftRight } from 'lucide-react'
 import { ProductProgressService, type ProductProgress } from '@/lib/services/product-progress-services'
 import toast from 'react-hot-toast'
 
@@ -11,16 +11,31 @@ interface ProductChecklistProps {
   isReadOnly?: boolean
 }
 
-// Helpers para detectar el estado "falta"
 const FALTA_PREFIX = 'FALTA:'
+const CAMBIO_PREFIX = 'CAMBIO:'
+
 const isFalta = (notes?: string | null) => !!notes?.startsWith(FALTA_PREFIX)
+const isCambio = (notes?: string | null) => !!notes?.startsWith(CAMBIO_PREFIX)
+
 const getFaltaReason = (notes?: string | null) => notes?.replace(FALTA_PREFIX, '').trim() ?? ''
-const buildFaltaNotes = (reason: string) => `${FALTA_PREFIX} ${reason.trim()}`
+
+// CAMBIO format: "CAMBIO: <nuevo_producto> | <motivo>"
+const parseCambio = (notes?: string | null) => {
+  const raw = notes?.replace(CAMBIO_PREFIX, '').trim() ?? ''
+  const [producto, motivo] = raw.split('|').map((s) => s.trim())
+  return { producto: producto ?? '', motivo: motivo ?? '' }
+}
+const buildCambioNotes = (producto: string, motivo: string) =>
+  `${CAMBIO_PREFIX} ${producto.trim()} | ${motivo.trim()}`
+
+type EditMode = 'normal' | 'falta' | 'cambio'
 
 type EditState = {
   cantidadCompletada: number
-  falta: boolean
+  mode: EditMode
   faltaReason: string
+  cambioProducto: string
+  cambioMotivo: string
   notes: string
 }
 
@@ -28,7 +43,14 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
   const [progress, setProgress] = useState<ProductProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const [editState, setEditState] = useState<EditState>({ cantidadCompletada: 0, falta: false, faltaReason: '', notes: '' })
+  const [editState, setEditState] = useState<EditState>({
+    cantidadCompletada: 0,
+    mode: 'normal',
+    faltaReason: '',
+    cambioProducto: '',
+    cambioMotivo: '',
+    notes: ''
+  })
 
   useEffect(() => { loadProgress() }, [orderId])
 
@@ -63,11 +85,15 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
     const item = progress.find((p) => p.product_index === index)
     if (!item) return
     const esFalta = isFalta(item.notes)
+    const esCambio = isCambio(item.notes)
+    const cambio = esCambio ? parseCambio(item.notes) : { producto: '', motivo: '' }
     setEditState({
       cantidadCompletada: item.cantidad_completada,
-      falta: esFalta,
+      mode: esFalta ? 'falta' : esCambio ? 'cambio' : 'normal',
       faltaReason: esFalta ? getFaltaReason(item.notes) : '',
-      notes: esFalta ? '' : (item.notes ?? '')
+      cambioProducto: cambio.producto,
+      cambioMotivo: cambio.motivo,
+      notes: (!esFalta && !esCambio) ? (item.notes ?? '') : ''
     })
     setEditingIndex(index)
   }
@@ -81,14 +107,22 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
       let cantidad_completada: number
       let is_completed: boolean
 
-      if (editState.falta) {
+      if (editState.mode === 'falta') {
         if (!editState.faltaReason.trim()) {
           toast.error('Ingresá el motivo por el que falta el producto')
           return
         }
-        notes = buildFaltaNotes(editState.faltaReason)
+        notes = `${FALTA_PREFIX} ${editState.faltaReason.trim()}`
         cantidad_completada = 0
         is_completed = false
+      } else if (editState.mode === 'cambio') {
+        if (!editState.cambioProducto.trim()) {
+          toast.error('Ingresá el producto de reemplazo')
+          return
+        }
+        notes = buildCambioNotes(editState.cambioProducto, editState.cambioMotivo)
+        cantidad_completada = item.cantidad
+        is_completed = true
       } else {
         notes = editState.notes
         cantidad_completada = editState.cantidadCompletada
@@ -96,7 +130,11 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
       }
 
       await ProductProgressService.updateProductProgress(orderId, index, { cantidad_completada, is_completed, notes })
-      toast.success(editState.falta ? 'Producto marcado como faltante' : 'Producto actualizado')
+      toast.success(
+        editState.mode === 'falta' ? 'Producto marcado como faltante' :
+        editState.mode === 'cambio' ? 'Sustitución guardada' :
+        'Producto actualizado'
+      )
       setEditingIndex(null)
       await loadProgress()
     } catch {
@@ -138,7 +176,9 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
           const item = progress.find((p) => p.product_index === index)
           const isCompleted = item?.is_completed ?? false
           const esFalta = isFalta(item?.notes)
+          const esCambio = isCambio(item?.notes)
           const faltaReason = getFaltaReason(item?.notes)
+          const cambio = esCambio ? parseCambio(item?.notes) : null
           const cantidadCompletada = item?.cantidad_completada ?? 0
           const isEditing = editingIndex === index
 
@@ -146,29 +186,42 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
             <div
               key={index}
               className={`border rounded-lg p-3 transition-all ${
-                isCompleted
+                isCompleted && !esCambio
                   ? 'bg-green-50 border-green-300'
                   : esFalta
                   ? 'bg-red-50 border-red-300'
+                  : esCambio
+                  ? 'bg-amber-50 border-amber-200'
                   : 'bg-white border-gray-200'
               }`}
             >
               {isEditing ? (
                 <div className='space-y-3'>
-                  <p className='font-medium text-gray-900'>{product.producto} <span className='text-xs text-gray-400'>(requerido: {product.cantidad})</span></p>
+                  <p className='font-medium text-gray-900'>
+                    {product.producto} <span className='text-xs text-gray-400'>(requerido: {product.cantidad})</span>
+                  </p>
 
-                  {/* Toggle falta */}
-                  <label className='flex items-center gap-2 cursor-pointer w-fit'>
-                    <input
-                      type='checkbox'
-                      checked={editState.falta}
-                      onChange={(e) => setEditState((s) => ({ ...s, falta: e.target.checked, cantidadCompletada: e.target.checked ? 0 : s.cantidadCompletada }))}
-                      className='h-4 w-4 text-red-600 rounded border-gray-300'
-                    />
-                    <span className='text-sm font-medium text-red-700'>No disponible / Falta</span>
-                  </label>
+                  {/* Selector de modo */}
+                  <div className='flex gap-2 flex-wrap'>
+                    {(['normal', 'cambio', 'falta'] as EditMode[]).map((m) => (
+                      <button
+                        key={m}
+                        type='button'
+                        onClick={() => setEditState((s) => ({ ...s, mode: m }))}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          editState.mode === m
+                            ? m === 'falta' ? 'bg-red-100 border-red-400 text-red-700'
+                              : m === 'cambio' ? 'bg-amber-100 border-amber-400 text-amber-700'
+                              : 'bg-blue-100 border-blue-400 text-blue-700'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {m === 'normal' ? 'Normal' : m === 'cambio' ? 'Cambiar por otro' : 'No disponible'}
+                      </button>
+                    ))}
+                  </div>
 
-                  {editState.falta ? (
+                  {editState.mode === 'falta' && (
                     <div>
                       <label className='block text-xs text-gray-600 mb-1'>Motivo *</label>
                       <input
@@ -180,7 +233,35 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                         className='w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-400 text-sm'
                       />
                     </div>
-                  ) : (
+                  )}
+
+                  {editState.mode === 'cambio' && (
+                    <div className='space-y-2'>
+                      <div>
+                        <label className='block text-xs text-gray-600 mb-1'>Producto de reemplazo *</label>
+                        <input
+                          type='text'
+                          autoFocus
+                          value={editState.cambioProducto}
+                          onChange={(e) => setEditState((s) => ({ ...s, cambioProducto: e.target.value }))}
+                          placeholder='Ej: Leche entera 1L'
+                          className='w-full px-3 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm'
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-xs text-gray-600 mb-1'>Motivo (opcional)</label>
+                        <input
+                          type='text'
+                          value={editState.cambioMotivo}
+                          onChange={(e) => setEditState((s) => ({ ...s, cambioMotivo: e.target.value }))}
+                          placeholder='Ej: No había el original'
+                          className='w-full px-3 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm'
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {editState.mode === 'normal' && (
                     <div className='grid grid-cols-2 gap-3'>
                       <div>
                         <label className='block text-xs text-gray-600 mb-1'>Cantidad conseguida</label>
@@ -226,8 +307,8 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                   <div className='flex items-start gap-3 flex-1 min-w-0'>
                     {!isReadOnly && (
                       <button
-                        onClick={() => !esFalta && handleToggle(index, isCompleted)}
-                        disabled={esFalta}
+                        onClick={() => !esFalta && !esCambio && handleToggle(index, isCompleted)}
+                        disabled={esFalta || esCambio}
                         className='mt-0.5 hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-50 flex-shrink-0'
                       >
                         {isCompleted ? (
@@ -239,13 +320,20 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                     )}
 
                     <div className='flex-1 min-w-0'>
-                      <p className={`font-medium text-sm ${isCompleted ? 'text-green-800 line-through' : esFalta ? 'text-red-800' : 'text-gray-900'}`}>
+                      <p className={`font-medium text-sm ${
+                        esFalta ? 'text-red-800' :
+                        esCambio ? 'text-amber-800' :
+                        isCompleted ? 'text-green-800 line-through' :
+                        'text-gray-900'
+                      }`}>
                         {product.producto}
                       </p>
                       <div className='flex flex-wrap items-center gap-2 mt-0.5'>
-                        <span className='text-xs text-gray-500'>{cantidadCompletada}/{product.cantidad}</span>
+                        {!esCambio && (
+                          <span className='text-xs text-gray-500'>{cantidadCompletada}/{product.cantidad}</span>
+                        )}
 
-                        {isCompleted && (
+                        {isCompleted && !esCambio && (
                           <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'>
                             <Check className='h-3 w-3' /> Conseguido
                           </span>
@@ -255,7 +343,12 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                             <AlertTriangle className='h-3 w-3' /> Falta
                           </span>
                         )}
-                        {cantidadCompletada > 0 && !isCompleted && !esFalta && (
+                        {esCambio && (
+                          <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700'>
+                            <ArrowLeftRight className='h-3 w-3' /> Cambiado
+                          </span>
+                        )}
+                        {cantidadCompletada > 0 && !isCompleted && !esFalta && !esCambio && (
                           <span className='inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800'>
                             Parcial
                           </span>
@@ -265,7 +358,13 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                       {esFalta && faltaReason && (
                         <p className='text-xs text-red-600 mt-0.5 italic'>Motivo: {faltaReason}</p>
                       )}
-                      {!esFalta && item?.notes && (
+                      {esCambio && cambio && (
+                        <p className='text-xs text-amber-700 mt-0.5'>
+                          → <span className='font-medium'>{cambio.producto}</span>
+                          {cambio.motivo && <span className='text-amber-600 italic'> ({cambio.motivo})</span>}
+                        </p>
+                      )}
+                      {!esFalta && !esCambio && item?.notes && (
                         <p className='text-xs text-gray-500 mt-0.5 italic'>{item.notes}</p>
                       )}
                     </div>
@@ -285,19 +384,27 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
 
       {/* Resumen */}
       <div className='bg-gray-50 rounded-lg p-3 mt-2'>
-        <div className='flex items-center justify-between text-sm'>
+        <div className='flex items-center justify-between text-sm flex-wrap gap-2'>
           <div className='flex items-center gap-2'>
             <Package className='h-4 w-4 text-gray-400' />
             <span className='text-gray-700 font-medium'>
-              {progress.filter((p) => p.is_completed).length}/{products.length} conseguidos
+              {progress.filter((p) => p.is_completed).length}/{products.length} completados
             </span>
           </div>
-          {progress.some((p) => isFalta(p.notes)) && (
-            <span className='text-xs text-red-600 font-medium flex items-center gap-1'>
-              <AlertTriangle className='h-3 w-3' />
-              {progress.filter((p) => isFalta(p.notes)).length} faltante(s)
-            </span>
-          )}
+          <div className='flex items-center gap-3'>
+            {progress.some((p) => isFalta(p.notes)) && (
+              <span className='text-xs text-red-600 font-medium flex items-center gap-1'>
+                <AlertTriangle className='h-3 w-3' />
+                {progress.filter((p) => isFalta(p.notes)).length} faltante(s)
+              </span>
+            )}
+            {progress.some((p) => isCambio(p.notes)) && (
+              <span className='text-xs text-amber-600 font-medium flex items-center gap-1'>
+                <ArrowLeftRight className='h-3 w-3' />
+                {progress.filter((p) => isCambio(p.notes)).length} cambiado(s)
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

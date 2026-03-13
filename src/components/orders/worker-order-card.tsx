@@ -12,7 +12,6 @@ import {
   AlertCircle,
   UserCheck,
   Play,
-  MessageSquare,
   RefreshCw,
   Timer,
   ExternalLink
@@ -61,10 +60,11 @@ function useElapsedTime(startISO: string | null | undefined, endISO?: string | n
 // ─── Component ─────────────────────────────────────────────────────────────────
 interface WorkerOrderCardProps {
   order: Order
-  onUpdateProgress?: (orderId: string, currentStatus: string) => void
+  onTaken?: () => void
+  canTake?: boolean
 }
 
-export function WorkerOrderCard({ order, onUpdateProgress }: WorkerOrderCardProps) {
+export function WorkerOrderCard({ order, onTaken, canTake = true }: WorkerOrderCardProps) {
   const [isAssigning, setIsAssigning] = useState(false)
   const [isReleasing, setIsReleasing] = useState(false)
   const { user } = useAuth()
@@ -98,6 +98,7 @@ export function WorkerOrderCard({ order, onUpdateProgress }: WorkerOrderCardProp
     try {
       await OrdersService.assignOrderToWorker(order.id, user.id)
       toast.success('¡Pedido asignado exitosamente!')
+      onTaken?.()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error al tomar el pedido')
     } finally {
@@ -246,50 +247,44 @@ export function WorkerOrderCard({ order, onUpdateProgress }: WorkerOrderCardProp
       {/* Acciones */}
       <div className='border-t pt-4'>
         {isAvailable && (
-          <button
-            onClick={handleTakeOrder}
-            disabled={isAssigning}
-            className='w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-          >
-            {isAssigning ? (
-              <><div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2' />Tomando pedido...</>
-            ) : (
-              <><Play className='w-4 h-4 mr-2' />Tomar este pedido</>
-            )}
-          </button>
+          canTake ? (
+            <button
+              onClick={handleTakeOrder}
+              disabled={isAssigning}
+              className='w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+            >
+              {isAssigning ? (
+                <><div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2' />Tomando pedido...</>
+              ) : (
+                <><Play className='w-4 h-4 mr-2' />Tomar este pedido</>
+              )}
+            </button>
+          ) : (
+            <div className='w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-400 rounded-md text-sm cursor-not-allowed'>
+              <AlertCircle className='w-4 h-4 mr-2' />
+              Ya tenés un pedido activo
+            </div>
+          )
         )}
 
-        {isAssignedToMe && !isDone && order.status !== 'cancelado' && (
-          <div className='space-y-2'>
-            <button
-              onClick={() => onUpdateProgress?.(order.id, order.status)}
-              className='w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-            >
-              <MessageSquare className='w-4 h-4 mr-2' />
-              Actualizar Progreso
-            </button>
-
-            {order.status === 'en_proceso' && (
-              <button
-                onClick={handleReleaseOrder}
-                disabled={isReleasing}
-                className='w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50'
-              >
-                {isReleasing
-                  ? <><div className='animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2' />Liberando...</>
-                  : <><RefreshCw className='w-4 h-4 mr-2' />Liberar Pedido</>
-                }
-              </button>
-            )}
-          </div>
+        {isAssignedToMe && order.status === 'en_proceso' && (
+          <button
+            onClick={handleReleaseOrder}
+            disabled={isReleasing}
+            className='mt-2 w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50'
+          >
+            {isReleasing
+              ? <><div className='animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2' />Liberando...</>
+              : <><RefreshCw className='w-4 h-4 mr-2' />Liberar Pedido</>
+            }
+          </button>
         )}
 
         {(isAssignedToOther || isDone || order.status === 'cancelado') && (
           <p className='text-center text-sm text-gray-500 py-2'>
-            {isAssignedToOther && 'Pedido asignado a otro trabajador'}
-            {order.status === 'entregado' && 'Pedido entregado'}
-            {order.status === 'completado' && 'Pedido completado'}
-            {order.status === 'cancelado' && 'Pedido cancelado'}
+            {isAssignedToOther ? 'Pedido asignado a otro trabajador' :
+             order.status === 'entregado' ? 'Pedido entregado' :
+             order.status === 'completado' ? 'Pedido completado' : 'Pedido cancelado'}
           </p>
         )}
 

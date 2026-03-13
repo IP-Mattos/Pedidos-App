@@ -14,7 +14,6 @@ import {
   Check,
   AlertCircle,
   Timer,
-  MessageSquare,
   AlertTriangle,
   Link2,
   MessageCircle
@@ -31,7 +30,6 @@ import { useAuth } from '@/hooks/use-auth'
 import { OrdersService } from '@/lib/services/order-services'
 import { ProductProgressService, ProductProgress } from '@/lib/services/product-progress-services'
 import { ProductChecklist } from '@/components/orders/product-checklist'
-import { ProgressModal } from '@/components/orders/progress-modal'
 import { Order, OrderProgress } from '@/types/database'
 import toast from 'react-hot-toast'
 
@@ -76,8 +74,6 @@ export default function WorkerOrderDetailPage() {
   const [progressHistory, setProgressHistory] = useState<OrderProgress[]>([])
   const [productProgress, setProductProgress] = useState<ProductProgress[]>([])
   const [loading, setLoading] = useState(true)
-  const [progressModalOpen, setProgressModalOpen] = useState(false)
-
   const loadData = useCallback(async () => {
     try {
       const [orderData, history, products] = await Promise.all([
@@ -193,15 +189,6 @@ export default function WorkerOrderDetailPage() {
               WhatsApp
             </button>
             <WorkerOrderPDFButton order={order} />
-            {isAssignedToMe && !isDone && order.status !== 'cancelado' && (
-              <button
-                onClick={() => setProgressModalOpen(true)}
-                className='inline-flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700'
-              >
-                <MessageSquare className='h-4 w-4 mr-1.5' />
-                Actualizar
-              </button>
-            )}
           </div>
         </div>
 
@@ -375,18 +362,6 @@ export default function WorkerOrderDetailPage() {
           </div>
         </div>
 
-        {/* Modal de progreso */}
-        {progressModalOpen && (
-          <ProgressModal
-            orderId={order.id}
-            currentStatus={order.status}
-            onClose={() => setProgressModalOpen(false)}
-            onUpdate={() => {
-              setProgressModalOpen(false)
-              loadData()
-            }}
-          />
-        )}
       </div>
     </MainLayout>
   )

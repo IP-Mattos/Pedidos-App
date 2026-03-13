@@ -136,11 +136,9 @@ export default function AdminOrdersPage() {
               <h1 className='text-3xl font-bold text-gray-900'>Gestión de Pedidos</h1>
               <p className='mt-2 text-gray-600'>Administra todos los pedidos del sistema</p>
             </div>
-            <Link href='/admin/create-order'>
-              <button className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'>
-                <Plus className='h-4 w-4 mr-2' />
-                Nuevo Pedido
-              </button>
+            <Link href='/admin/create-order' className='flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'>
+              <Plus className='h-4 w-4 mr-2' />
+              Nuevo Pedido
             </Link>
           </div>
         </div>
@@ -249,11 +247,9 @@ export default function AdminOrdersPage() {
             </p>
             {orders.length === 0 && (
               <div className='mt-6'>
-                <Link href='/admin/create-order'>
-                  <button className='inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700'>
-                    <Plus className='mr-2 h-4 w-4' />
-                    Crear Primer Pedido
-                  </button>
+                <Link href='/admin/create-order' className='inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700'>
+                  <Plus className='mr-2 h-4 w-4' />
+                  Crear Primer Pedido
                 </Link>
               </div>
             )}

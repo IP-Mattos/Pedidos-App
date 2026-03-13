@@ -185,3 +185,10 @@
 /* Tables */
 .dark table thead tr { background-color: #0f172a !important; }
 .dark table tbody tr:hover { background-color: #1e293b !important; }
+
+/* ── Complementos para el panel/board ── */
+.dark .bg-gray-300            { background-color: #475569 !important; }
+.dark .text-gray-300          { color: #475569 !important; }
+.dark .hover\:bg-gray-200:hover { background-color: #334155 !important; }
+.dark .hover\:text-gray-600:hover { color: #94a3b8 !important; }
+.dark .ring-offset-gray-100   { --tw-ring-offset-color: #1e293b !important; }

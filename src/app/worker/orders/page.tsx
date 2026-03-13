@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { WorkerOrderCard } from '@/components/orders/worker-order-card'
-import { ProgressModal } from '@/components/orders/progress-modal'
 import { useWorkerOrders } from '@/hooks/use-orders'
 import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
@@ -13,11 +12,6 @@ import { Package, Clock, User, CheckCircle, History, Calendar, DollarSign, BellO
 export default function WorkerOrdersPage() {
   const { user, profile } = useAuth()
   const { availableOrders, myOrders, loading, error, silentRefetch } = useWorkerOrders(user?.id || '')
-  const [progressModal, setProgressModal] = useState<{
-    isOpen: boolean
-    orderId: string
-    currentStatus: string
-  }>({ isOpen: false, orderId: '', currentStatus: '' })
 
   // History section toggle
   const [showHistory, setShowHistory] = useState(false)
@@ -80,18 +74,6 @@ export default function WorkerOrdersPage() {
         </div>
       </MainLayout>
     )
-  }
-
-  const openProgressModal = (orderId: string, currentStatus: string) => {
-    setProgressModal({ isOpen: true, orderId, currentStatus })
-  }
-
-  const closeProgressModal = () => {
-    setProgressModal({ isOpen: false, orderId: '', currentStatus: '' })
-  }
-
-  const handleUpdate = () => {
-    silentRefetch()
   }
 
   const activeOrders = myOrders.filter((o) => o.status === 'en_proceso')
@@ -194,6 +176,34 @@ export default function WorkerOrdersPage() {
           </div>
         </div>
 
+        {/* Pedido Actual */}
+        {activeOrders.length > 0 && (
+          <div className='mb-8'>
+            {/* Header de sección */}
+            <div className='flex items-center gap-3 mb-3'>
+              <div className='flex items-center gap-2'>
+                <div className='relative flex h-3 w-3'>
+                  <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75' />
+                  <span className='relative inline-flex rounded-full h-3 w-3 bg-blue-500' />
+                </div>
+                <h2 className='text-2xl font-bold text-gray-900'>Pedido Actual</h2>
+              </div>
+              <span className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white shadow-sm'>
+                En proceso
+              </span>
+            </div>
+
+            {/* Card destacada */}
+            <div className='relative'>
+              {/* Glow effect */}
+              <div className='absolute -inset-1 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-500 rounded-2xl opacity-20 blur-sm' />
+              <div className='relative ring-2 ring-blue-400 ring-offset-2 rounded-xl shadow-lg'>
+                <WorkerOrderCard key={activeOrders[0].id} order={activeOrders[0]} />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Pedidos disponibles */}
         <div className='mb-8'>
           <h2 className='text-2xl font-bold text-gray-900 mb-4'>
@@ -214,23 +224,11 @@ export default function WorkerOrdersPage() {
           ) : (
             <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
               {availableOrders.map((order) => (
-                <WorkerOrderCard key={order.id} order={order} onUpdateProgress={openProgressModal} />
+                <WorkerOrderCard key={order.id} order={order} onTaken={silentRefetch} canTake={activeOrders.length === 0} />
               ))}
             </div>
           )}
         </div>
-
-        {/* Mis pedidos activos */}
-        {activeOrders.length > 0 && (
-          <div className='mb-8'>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>Mis Pedidos Activos</h2>
-            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
-              {activeOrders.map((order) => (
-                <WorkerOrderCard key={order.id} order={order} onUpdateProgress={openProgressModal} />
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Mi historial — pedidos completados */}
         <div className='mb-8'>
@@ -333,15 +331,6 @@ export default function WorkerOrdersPage() {
           </div>
         </div>
 
-        {/* Modal de progreso */}
-        {progressModal.isOpen && (
-          <ProgressModal
-            orderId={progressModal.orderId}
-            currentStatus={progressModal.currentStatus}
-            onClose={closeProgressModal}
-            onUpdate={handleUpdate}
-          />
-        )}
       </div>
     </MainLayout>
   )

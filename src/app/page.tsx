@@ -319,13 +319,11 @@ function AdminDashboard({ profile }: { profile: Profile | null }) {
 
 function WorkerDashboard({ profile, user }: { profile: Profile | null; user: User }) {
   const { availableOrders, myOrders, loading, error } = useWorkerOrders(user.id)
-
   const [showCompleted, setShowCompleted] = useState(false)
 
   const activeMyOrders = myOrders.filter((o) => !['completado', 'entregado', 'pagado'].includes(o.status))
   const completedMyOrders = myOrders.filter((o) => ['completado', 'entregado', 'pagado'].includes(o.status))
 
-  // Estadísticas del worker
   const stats = {
     asignados: myOrders.length,
     en_proceso: myOrders.filter((o) => o.status === 'en_proceso').length,
@@ -341,76 +339,32 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
           <p className='mt-2 text-gray-600'>Bienvenido, {profile?.full_name}. Aquí puedes ver tus pedidos asignados.</p>
         </div>
 
-        {/* Estadísticas del worker */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-          <div className='bg-white overflow-hidden shadow rounded-lg'>
-            <div className='p-5'>
-              <div className='flex items-center'>
-                <div className='flex-shrink-0'>
-                  <Package className='h-6 w-6 text-blue-400' />
-                </div>
-                <div className='ml-5 w-0 flex-1'>
-                  <dl>
-                    <dt className='text-sm font-medium text-gray-500 truncate'>Mis Asignados</dt>
-                    <dd className='text-lg font-medium text-gray-900'>{stats.asignados}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className='bg-white overflow-hidden shadow rounded-lg'>
-            <div className='p-5'>
-              <div className='flex items-center'>
-                <div className='flex-shrink-0'>
-                  <Clock className='h-6 w-6 text-yellow-400' />
-                </div>
-                <div className='ml-5 w-0 flex-1'>
-                  <dl>
-                    <dt className='text-sm font-medium text-gray-500 truncate'>En Proceso</dt>
-                    <dd className='text-lg font-medium text-gray-900'>{stats.en_proceso}</dd>
-                  </dl>
+          {[
+            { label: 'Mis Asignados', value: stats.asignados, icon: Package, color: 'text-blue-400' },
+            { label: 'En Proceso', value: stats.en_proceso, icon: Clock, color: 'text-yellow-400' },
+            { label: 'Completados', value: stats.completados, icon: CheckCircle, color: 'text-green-400' },
+            { label: 'Disponibles', value: stats.disponibles, icon: Plus, color: 'text-green-400' },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className='bg-white overflow-hidden shadow rounded-lg'>
+              <div className='p-5'>
+                <div className='flex items-center'>
+                  <div className='flex-shrink-0'><Icon className={`h-6 w-6 ${color}`} /></div>
+                  <div className='ml-5 w-0 flex-1'>
+                    <dl>
+                      <dt className='text-sm font-medium text-gray-500 truncate'>{label}</dt>
+                      <dd className='text-lg font-medium text-gray-900'>{value}</dd>
+                    </dl>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className='bg-white overflow-hidden shadow rounded-lg'>
-            <div className='p-5'>
-              <div className='flex items-center'>
-                <div className='flex-shrink-0'>
-                  <CheckCircle className='h-6 w-6 text-green-400' />
-                </div>
-                <div className='ml-5 w-0 flex-1'>
-                  <dl>
-                    <dt className='text-sm font-medium text-gray-500 truncate'>Completados</dt>
-                    <dd className='text-lg font-medium text-gray-900'>{stats.completados}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className='bg-white overflow-hidden shadow rounded-lg'>
-            <div className='p-5'>
-              <div className='flex items-center'>
-                <div className='flex-shrink-0'>
-                  <Plus className='h-6 w-6 text-green-400' />
-                </div>
-                <div className='ml-5 w-0 flex-1'>
-                  <dl>
-                    <dt className='text-sm font-medium text-gray-500 truncate'>Disponibles</dt>
-                    <dd className='text-lg font-medium text-gray-900'>{stats.disponibles}</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
         {loading ? (
           <div className='flex justify-center py-12'>
-            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500'></div>
+            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500' />
           </div>
         ) : error ? (
           <div className='text-center py-12'>
@@ -419,7 +373,6 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
           </div>
         ) : (
           <>
-            {/* Pedidos disponibles para tomar */}
             <div className='mb-8'>
               <h2 className='text-2xl font-bold text-gray-900 mb-4'>
                 Pedidos Disponibles
@@ -427,29 +380,21 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
                   {availableOrders.length}
                 </span>
               </h2>
-
               {availableOrders.length === 0 ? (
                 <div className='bg-white shadow rounded-lg p-8 text-center'>
                   <Package className='mx-auto h-12 w-12 text-gray-400' />
                   <h3 className='mt-2 text-sm font-medium text-gray-900'>No hay pedidos disponibles</h3>
-                  <p className='mt-1 text-sm text-gray-500'>
-                    Los nuevos pedidos aparecerán aquí cuando sean creados por los administradores.
-                  </p>
+                  <p className='mt-1 text-sm text-gray-500'>Los nuevos pedidos aparecerán aquí cuando sean creados por los administradores.</p>
                 </div>
               ) : (
                 <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
                   {availableOrders.map((order) => (
-                    <WorkerOrderCard
-                      key={order.id}
-                      order={order}
-                      onUpdateProgress={() => {}}
-                    />
+                    <WorkerOrderCard key={order.id} order={order} />
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Mis pedidos asignados */}
             {activeMyOrders.length > 0 && (
               <div className='mb-8'>
                 <h2 className='text-2xl font-bold text-gray-900 mb-4'>
@@ -460,17 +405,12 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
                 </h2>
                 <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
                   {activeMyOrders.map((order) => (
-                    <WorkerOrderCard
-                      key={order.id}
-                      order={order}
-                      onUpdateProgress={() => {}}
-                    />
+                    <WorkerOrderCard key={order.id} order={order} />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Mis pedidos completados */}
             {completedMyOrders.length > 0 && (
               <div className='mb-8'>
                 <button
@@ -484,7 +424,6 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
                   </span>
                   <span className='ml-1 text-xs text-gray-400'>{showCompleted ? '▲ ocultar' : '▼ ver'}</span>
                 </button>
-
                 {showCompleted && (
                   <div className='bg-white shadow rounded-lg divide-y'>
                     {completedMyOrders.map((order) => (
@@ -512,7 +451,6 @@ function WorkerDashboard({ profile, user }: { profile: Profile | null; user: Use
               </div>
             )}
 
-            {/* Botón para ver todos */}
             <div className='text-center'>
               <Link href='/worker/orders'>
                 <button className='inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700'>

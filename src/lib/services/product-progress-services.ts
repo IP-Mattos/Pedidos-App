@@ -29,13 +29,30 @@ export class ProductProgressService {
 
     const { error } = await supabase.from('order_product_progress').upsert(progressItems, {
       onConflict: 'order_id,product_index',
-      ignoreDuplicates: false
+      ignoreDuplicates: true
     })
 
     if (error) {
       console.error('Error initializing product progress:', error)
       throw new Error(error.message)
     }
+  }
+
+  // Obtener el progreso de varios pedidos en una sola query (para el board)
+  static async getProgressForOrders(orderIds: string[]): Promise<Record<string, { done: number; total: number }>> {
+    if (orderIds.length === 0) return {}
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('order_product_progress')
+      .select('order_id, is_completed')
+      .in('order_id', orderIds)
+    const result: Record<string, { done: number; total: number }> = {}
+    for (const row of data ?? []) {
+      if (!result[row.order_id]) result[row.order_id] = { done: 0, total: 0 }
+      result[row.order_id].total++
+      if (row.is_completed) result[row.order_id].done++
+    }
+    return result
   }
 
   // Obtener el progreso de productos de un pedido
