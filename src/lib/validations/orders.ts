@@ -11,7 +11,7 @@ export const createOrderSchema = z.object({
   customer_phone: z.string().optional(), // ✅ Cambiar nombre del campo
   customer_address: z.string().optional(), // ✅ Cambiar nombre del campo
   fecha_entrega: z.string().min(1, 'La fecha de entrega es requerida'),
-  metodo_pago: z.enum(['efectivo', 'credito', 'dolares', 'cheque', 'transferencia']),
+  metodo_pago: z.enum(['efectivo', 'credito', 'dolares', 'cheque', 'transferencia', 'debito']),
   esta_pagado: z.boolean(),
   productos: z.array(productSchema).min(1, 'Debe agregar al menos un producto'),
   notas: z.string().optional(),

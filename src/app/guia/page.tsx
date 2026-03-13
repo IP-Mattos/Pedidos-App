@@ -7,7 +7,8 @@ import {
   Plus, Search, Filter, CheckCircle, Truck, MapPin,
   Bell, ArrowRight, Hash, Zap, Shield, RefreshCw,
   Eye, Edit, Trash2, ChevronDown, AlertCircle, List,
-  Sparkles, Camera, FileText, Keyboard, DollarSign, UserRound
+  Sparkles, Camera, FileText, Keyboard, DollarSign, UserRound,
+  MessageCircle, Link2, ExternalLink, Phone
 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { useAuth } from '@/hooks/use-auth'
@@ -31,6 +32,8 @@ const ALL_SECTIONS: Section[] = [
   { id: 'ranking',        label: 'Ranking de workers',   icon: Trophy },
   { id: 'reportes',       label: 'Reportes',             icon: BarChart3 },
   { id: 'usuarios',       label: 'Usuarios',             icon: Users },
+  { id: 'tracking',       label: 'Link de seguimiento',  icon: Link2 },
+  { id: 'demo',           label: 'Demo pública',         icon: ExternalLink },
   { id: 'worker',         label: 'Worker — Pedidos',     icon: CheckCircle },
   { id: 'delivery',       label: 'Delivery',             icon: Truck },
   { id: 'config',         label: 'Configuración',        icon: Settings },
@@ -42,7 +45,7 @@ const ALL_SECTIONS: Section[] = [
 ]
 
 const ROLE_SECTIONS: Record<string, string[]> = {
-  admin:    ['intro', 'roles', 'flujo', 'admin-dash', 'crear-pedido', 'ia-productos', 'admin-pedidos', 'admin-detalle', 'clientes', 'ranking', 'reportes', 'usuarios', 'worker', 'delivery', 'config', 'notificaciones', 'tiempo-real', 'costos', 'valor', 'precios'],
+  admin:    ['intro', 'roles', 'flujo', 'admin-dash', 'crear-pedido', 'ia-productos', 'admin-pedidos', 'admin-detalle', 'clientes', 'ranking', 'reportes', 'usuarios', 'tracking', 'demo', 'worker', 'delivery', 'config', 'notificaciones', 'tiempo-real', 'costos', 'valor', 'precios'],
   worker:   ['intro', 'worker', 'notificaciones', 'config', 'tiempo-real'],
   delivery: ['intro', 'delivery', 'config'],
 }
@@ -268,12 +271,16 @@ export default function GuiaPage() {
               El sistema funciona con tres roles bien definidos: el <strong>Administrador</strong> crea y supervisa todo, los <strong>Workers</strong> procesan los pedidos, y el equipo de <strong>Delivery</strong> gestiona el cobro y la entrega.
             </P>
             <FeatureGrid items={[
-              { icon: Zap,       title: 'Tiempo real',      desc: 'Los cambios de estado se reflejan al instante gracias a Supabase Realtime.' },
-              { icon: Shield,    title: 'Roles y accesos',  desc: 'Cada usuario solo ve y puede hacer lo que le corresponde.' },
-              { icon: MapPin,    title: 'Dirección',        desc: 'Autocompletado de dirección restringido a Florida, Uruguay.' },
-              { icon: Bell,      title: 'Notificaciones',   desc: 'Los workers reciben alertas del browser cuando llega un pedido nuevo.' },
-              { icon: Sparkles,  title: 'IA para productos', desc: 'Pegá un mensaje de WhatsApp o subí una foto y la IA extrae los productos automáticamente.' },
-              { icon: Camera,    title: 'Escaneo de imagen', desc: 'Claude lee listas escritas a mano, tickets o fotos de pedidos y los carga al sistema.' },
+              { icon: Zap,            title: 'Tiempo real',           desc: 'Los cambios de estado se reflejan al instante gracias a Supabase Realtime.' },
+              { icon: Shield,         title: 'Roles y accesos',       desc: 'Cada usuario solo ve y puede hacer lo que le corresponde.' },
+              { icon: MapPin,         title: 'Dirección',             desc: 'Autocompletado de dirección restringido a Florida, Uruguay.' },
+              { icon: Bell,           title: 'Notificaciones',        desc: 'Los workers reciben alertas del browser cuando llega un pedido nuevo.' },
+              { icon: Sparkles,       title: 'IA para productos',     desc: 'Pegá un mensaje de WhatsApp o subí una foto y la IA extrae los productos automáticamente.' },
+              { icon: Camera,         title: 'Escaneo de imagen',     desc: 'Claude lee listas escritas a mano, tickets o fotos de pedidos y los carga al sistema.' },
+              { icon: Link2,          title: 'Link de seguimiento',   desc: 'Cada pedido tiene un link público para que el cliente vea el progreso en tiempo real sin iniciar sesión.' },
+              { icon: ExternalLink,   title: 'Demo pública',          desc: 'Formulario público para que cualquier cliente haga su pedido directamente desde un link compartido.' },
+              { icon: MessageCircle,  title: 'Integración WhatsApp',  desc: 'Enviá el link de seguimiento por WhatsApp al cliente con un solo click desde el detalle del pedido.' },
+              { icon: Phone,          title: 'Teléfono en perfiles',  desc: 'Workers y delivery tienen número de teléfono editable. Aparece como link directo a WhatsApp.' },
             ]} />
 
             <Divider />
@@ -290,13 +297,13 @@ export default function GuiaPage() {
                       role: 'admin' as const,
                       emoji: '👑', color: 'border-red-200 bg-red-50',
                       title: 'Administrador',
-                      items: ['Dashboard con métricas', 'Crear y editar pedidos', 'Asignar workers', 'Ver todos los pedidos', 'Gestión de clientes', 'Ranking de workers', 'Reportes y gráficos', 'Gestión de usuarios'],
+                      items: ['Dashboard con métricas', 'Crear y editar pedidos', 'Asignar workers', 'Ver todos los pedidos', 'Gestión de clientes', 'Ranking de workers', 'Reportes y gráficos', 'Gestión de usuarios', 'Editar perfil de workers/delivery', 'Compartir link de seguimiento al cliente'],
                     },
                     {
                       role: 'worker' as const,
                       emoji: '👷', color: 'border-blue-200 bg-blue-50',
                       title: 'Worker',
-                      items: ['Ver pedidos asignados', 'Actualizar estado', 'Ver historial propio', 'Notificaciones del browser'],
+                      items: ['Ver pedidos asignados', 'Actualizar estado', 'Ver historial propio', 'Notificaciones del browser', 'Notificar al cliente por link o WhatsApp'],
                     },
                     {
                       role: 'delivery' as const,
@@ -402,7 +409,7 @@ export default function GuiaPage() {
                 <SubTitle>Detalles del pedido</SubTitle>
                 <StepList steps={[
                   { title: 'Fecha de entrega', desc: 'Cuándo debe estar listo el pedido. Por defecto se pone el día de hoy.' },
-                  { title: 'Método de pago', desc: 'Efectivo, Tarjeta de Crédito, Dólares, Cheque o Transferencia.' },
+                  { title: 'Método de pago', desc: 'Efectivo, Débito, Tarjeta de Crédito, Dólares, Cheque o Transferencia.' },
                   { title: '¿Ya está pagado?', desc: 'Tildá esta opción si el cliente ya abonó al momento de crear el pedido.' },
                   { title: 'Notas adicionales', desc: 'Cualquier indicación especial para el worker o el delivery.' },
                 ]} />
@@ -556,11 +563,14 @@ En otra boleta
 
                 <SubTitle>Acciones disponibles</SubTitle>
                 <FeatureGrid items={[
-                  { icon: Edit,         title: 'Editar pedido',     desc: 'Modificar cualquier campo del pedido incluyendo productos y dirección.' },
-                  { icon: Users,        title: 'Asignar worker',    desc: 'Seleccionar qué worker procesará el pedido.' },
-                  { icon: CheckCircle,  title: 'Cambiar estado',    desc: 'Mover el pedido a cualquier estado manualmente.' },
-                  { icon: Trash2,       title: 'Cancelar pedido',   desc: 'Se pide confirmación antes de cancelar. La acción es irreversible.' },
+                  { icon: Edit,           title: 'Editar pedido',          desc: 'Modificar cualquier campo del pedido incluyendo productos y dirección.' },
+                  { icon: Users,          title: 'Asignar worker',         desc: 'Seleccionar qué worker procesará el pedido.' },
+                  { icon: CheckCircle,    title: 'Cambiar estado',         desc: 'Mover el pedido a cualquier estado manualmente.' },
+                  { icon: Link2,          title: 'Copiar link de seguimiento', desc: 'Copia al portapapeles el link público para que el cliente vea el progreso de su pedido.' },
+                  { icon: MessageCircle,  title: 'Enviar por WhatsApp',    desc: 'Abre WhatsApp con el teléfono del cliente y un mensaje con el link de seguimiento prellenado.' },
+                  { icon: Trash2,         title: 'Cancelar pedido',        desc: 'Se pide confirmación antes de cancelar. La acción es irreversible.' },
                 ]} />
+                <InfoBox type='tip'>Los botones de "Link" y "WhatsApp" aparecen en el encabezado del detalle del pedido, junto al botón de PDF y el de editar.</InfoBox>
                 <InfoBox type='warn'>Al cambiar el estado a <strong>Cancelado</strong> el sistema pedirá confirmación. Una vez cancelado, el pedido no puede retomarse.</InfoBox>
 
                 <Divider />
@@ -659,6 +669,75 @@ En otra boleta
                 ]} />
                 <InfoBox type='warn'>Cambiar el rol de un usuario cambia inmediatamente qué páginas puede ver y qué acciones puede realizar.</InfoBox>
 
+                <SubTitle>Editar perfil (nombre y teléfono)</SubTitle>
+                <P>Para workers y delivery, el admin puede editar el nombre y el número de teléfono directamente desde la tabla de usuarios.</P>
+                <StepList steps={[
+                  { title: 'Hacé click en "Editar"', desc: 'El botón aparece en cada fila de la tabla de usuarios.' },
+                  { title: 'Modificá nombre y/o teléfono', desc: 'Ingresá el nuevo nombre o el número de contacto (ej: 099 123 456).' },
+                  { title: 'Guardá los cambios', desc: 'El perfil se actualiza al instante para ese usuario.' },
+                ]} />
+
+                <SubTitle>Teléfono como link de WhatsApp</SubTitle>
+                <P>Cuando un worker o delivery tiene teléfono cargado, el número aparece en la tabla como un link que abre su chat de WhatsApp directamente. En el celular abre la app de WhatsApp; en la computadora abre WhatsApp Web.</P>
+                <InfoBox type='tip'>El sistema normaliza automáticamente el formato uruguayo: si el número empieza con <strong>0</strong> (ej: 099...), lo convierte al formato internacional <strong>598 99...</strong> para que el link de WhatsApp funcione correctamente.</InfoBox>
+
+                <Divider />
+              </>
+            )}
+
+            {/* ── TRACKING ── (admin only) */}
+            {role === 'admin' && (
+              <>
+                <SectionTitle id='tracking' icon={Link2}>Link de seguimiento del cliente</SectionTitle>
+                <P>Cada pedido tiene una URL pública única en <strong>/track/[id]</strong> que el cliente puede abrir sin necesidad de iniciar sesión. Desde ahí ve el progreso de su pedido en tiempo real.</P>
+
+                <SubTitle>¿Qué ve el cliente?</SubTitle>
+                <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-4 list-disc'>
+                  <li>Un stepper de 4 pasos: <strong>Recibido → En preparación → Listo → Entregado</strong></li>
+                  <li>Lista de productos del pedido con íconos de estado (completado / faltante / pendiente)</li>
+                  <li>Nombre del worker que está preparando el pedido (cuando está en proceso)</li>
+                  <li>Barra de progreso de los productos cuando el pedido está en preparación</li>
+                  <li>Actualizaciones en tiempo real sin necesidad de recargar la página</li>
+                </ul>
+
+                <SubTitle>Cómo compartir el link</SubTitle>
+                <P>Desde el detalle de cualquier pedido, en el encabezado, hay dos botones:</P>
+                <FeatureGrid items={[
+                  { icon: Link2,         title: 'Copiar link',     desc: 'Copia la URL de seguimiento al portapapeles con un click. Podés pegarlo donde quieras.' },
+                  { icon: MessageCircle, title: 'Enviar WhatsApp', desc: 'Si el pedido tiene teléfono del cliente, abre WhatsApp con el mensaje y el link prellenados. Si no tiene teléfono, abre WhatsApp igualmente para elegir el contacto.' },
+                ]} />
+                <InfoBox type='tip'>El link es permanente — el cliente puede guardarlo y volver a consultarlo cuando quiera mientras el pedido esté activo.</InfoBox>
+
+                <Divider />
+
+                {/* ── DEMO ── */}
+                <SectionTitle id='demo' icon={ExternalLink}>Demo pública — Formulario de pedidos</SectionTitle>
+                <P>La ruta <strong>/demo</strong> es un formulario público donde cualquier persona puede hacer un pedido sin necesidad de iniciar sesión ni tener una cuenta. Ideal para compartir a clientes nuevos.</P>
+
+                <SubTitle>¿Qué puede hacer el cliente en la demo?</SubTitle>
+                <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-4 list-disc'>
+                  <li>Ingresar nombre (obligatorio), teléfono y dirección</li>
+                  <li>Agregar productos con nombre y cantidad</li>
+                  <li>Elegir método de pago: <strong>Efectivo, Débito o Transferencia</strong></li>
+                  <li>Agregar notas adicionales</li>
+                  <li>Enviar el pedido — se crea automáticamente en el sistema</li>
+                  <li>Al enviar, recibe un <strong>link de seguimiento</strong> para ver el progreso</li>
+                </ul>
+
+                <SubTitle>Diferencias con el formulario interno</SubTitle>
+                <FeatureGrid items={[
+                  { icon: Shield,    title: 'Sin login',           desc: 'Cualquiera puede acceder desde el link. No necesita cuenta ni contraseña.' },
+                  { icon: ArrowRight, title: 'Sin fecha',          desc: 'No se muestra el picker de fecha — la fecha de entrega se asigna automáticamente al día siguiente.' },
+                  { icon: CheckCircle, title: 'Métodos limitados', desc: 'Solo Efectivo, Débito y Transferencia. No se permiten dólares, cheque ni crédito.' },
+                  { icon: ExternalLink, title: 'Sin precio',       desc: 'Los productos no tienen campo de precio — el admin los gestiona desde el panel interno.' },
+                ]} />
+
+                <SubTitle>Cómo el admin ve estos pedidos</SubTitle>
+                <P>Los pedidos creados desde la demo aparecen en la lista normal de pedidos del admin, igual que cualquier otro pedido. Se identifican porque el campo <strong>"Creado por"</strong> está vacío (el pedido no tiene usuario asociado). Desde ahí el admin puede asignarlos a un worker y gestionar el ciclo normal.</P>
+
+                <InfoBox type='tip'>La demo tiene modo claro y oscuro (por defecto claro). El cliente puede cambiar el tema desde el botón en el encabezado de la página.</InfoBox>
+                <InfoBox type='warn'>Para que la demo funcione, la base de datos debe tener habilitadas las políticas RLS que permiten inserts anónimos en la tabla <strong>orders</strong>.</InfoBox>
+
                 <Divider />
               </>
             )}
@@ -684,6 +763,14 @@ En otra boleta
                   { title: 'Seleccioná el nuevo estado', desc: 'Usá el selector de estado en el detalle del pedido.' },
                   { title: 'Guardá el cambio', desc: 'El pedido se actualiza y el admin lo ve en tiempo real.' },
                 ]} />
+
+                <SubTitle>Notificar al cliente</SubTitle>
+                <P>Desde el detalle de cualquier pedido, el worker puede compartir el link de seguimiento al cliente cuando lo desee — sin depender del admin.</P>
+                <FeatureGrid items={[
+                  { icon: Link2,         title: 'Copiar link',     desc: 'Copia la URL de seguimiento al portapapeles. Podés pegarlo en WhatsApp, SMS o donde quieras.' },
+                  { icon: MessageCircle, title: 'WhatsApp',        desc: 'Si el pedido tiene teléfono del cliente, abre WhatsApp con el mensaje y el link prellenados. Si no tiene teléfono, abre WhatsApp para elegir el contacto.' },
+                ]} />
+                <InfoBox type='tip'>Podés mandar el link en cualquier momento: al tomar el pedido, al completarlo, o cuando el cliente pregunte cómo va.</InfoBox>
 
                 <SubTitle>Mi Historial</SubTitle>
                 <P>Debajo de los pedidos activos hay una sección colapsable <strong>"Mi Historial"</strong> que muestra todos los pedidos que el worker ya procesó, con fecha de finalización y duración. Desde el historial podés hacer click en <strong>"Ver detalle"</strong> para abrir el pedido completo.</P>
@@ -885,6 +972,8 @@ En otra boleta
                         'El delivery sabe exactamente qué cobrar y qué entregar',
                         'Historial completo con fecha, hora y quién hizo cada cambio',
                         'IA carga los productos desde un mensaje de WhatsApp en segundos',
+                        'El cliente recibe un link para ver el progreso de su pedido en tiempo real',
+                        'Formulario público para que los clientes hagan pedidos directamente',
                       ].map((i) => (
                         <li key={i} className='flex items-start gap-2 text-xs text-emerald-800'>
                           <CheckCircle className='h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5' />{i}
@@ -963,6 +1052,8 @@ En otra boleta
                         ['Historial con auditoría', '✕', 'Parcial', '✓'],
                         ['Ranking y métricas de workers', '✕', 'Manual', '✓'],
                         ['Notificaciones al worker', '✕', '✕', '✓'],
+                        ['Link de seguimiento al cliente', '✕', '✕', '✓'],
+                        ['Formulario público para clientes', '✕', '✕', '✓'],
                         ['Acceso desde celular', '✓', 'Parcial', '✓'],
                         ['Reportes automáticos', '✕', 'Manual', '✓'],
                         ['Personalización de marca', '—', '—', '✓ (Pro)'],
@@ -1029,6 +1120,8 @@ En otra boleta
                         'Ranking de workers',
                         'Reportes + exportar PDF',
                         'Tiempo real',
+                        'Link de seguimiento al cliente',
+                        'Demo pública para clientes',
                         'Personalización de marca',
                         'Actualizaciones incluidas',
                       ].map((f) => (

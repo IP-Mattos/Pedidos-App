@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { CustomerService } from '@/lib/services/customer-services'
 import type { Customer } from '@/types/database'
-import { Users, Phone, MapPin, Search, Pencil, Check, X, Package, FileText } from 'lucide-react'
+import { Users, Phone, MapPin, Search, Pencil, Check, X, Package, FileText, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type CustomerWithStats = Customer & { order_count: number; last_order_at: string | null }
@@ -92,6 +92,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -127,6 +128,20 @@ export default function CustomersPage() {
     (c.address ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.rut ?? '').includes(searchTerm)
   )
+
+  const handleDelete = async (id: string, nombre: string) => {
+    if (!confirm(`¿Borrar el cliente "${nombre}"? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await CustomerService.delete(id)
+      toast.success('Cliente eliminado')
+      setCustomers((prev) => prev.filter((c) => c.id !== id))
+    } catch {
+      toast.error('Error al eliminar cliente')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleSave = async (id: string, nombre: string, phone: string, address: string, rut: string) => {
     try {
@@ -296,13 +311,23 @@ export default function CustomersPage() {
                         </span>
                       </td>
                       <td className='px-4 py-3'>
-                        <button
-                          onClick={() => setEditingId(customer.id)}
-                          className='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors'
-                        >
-                          <Pencil className='h-3 w-3' />
-                          Editar
-                        </button>
+                        <div className='flex items-center gap-2'>
+                          <button
+                            onClick={() => setEditingId(customer.id)}
+                            className='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors'
+                          >
+                            <Pencil className='h-3 w-3' />
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(customer.id, customer.nombre)}
+                            disabled={deletingId === customer.id}
+                            className='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50'
+                          >
+                            <Trash2 className='h-3 w-3' />
+                            {deletingId === customer.id ? 'Borrando...' : 'Borrar'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

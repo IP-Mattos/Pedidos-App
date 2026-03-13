@@ -11,7 +11,8 @@ import {
   Package,
   Check,
   Truck,
-  User
+  User,
+  ExternalLink
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
@@ -147,6 +148,15 @@ export default function DeliveryOrderDetailPage() {
                   <div>
                     <p className='text-xs text-gray-500'>Dirección</p>
                     <p className='text-sm font-medium text-gray-900'>{order.customer_address}</p>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium mt-1'
+                    >
+                      <ExternalLink className='h-3 w-3' />
+                      Ver en mapa
+                    </a>
                   </div>
                 </div>
               )}

@@ -40,7 +40,8 @@ const preferencesSchema = z.object({
 })
 
 const profileUpdateSchema = z.object({
-  full_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres')
+  full_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+  phone: z.string().optional()
 })
 
 const passwordSchema = z
@@ -105,7 +106,7 @@ export default function SettingsPage() {
     reset: resetProfile
   } = useForm<ProfileUpdateFormData>({
     resolver: zodResolver(profileUpdateSchema),
-    defaultValues: { full_name: profile?.full_name || '' }
+    defaultValues: { full_name: profile?.full_name || '', phone: profile?.phone || '' }
   })
 
   // Formulario para contraseña
@@ -139,7 +140,7 @@ export default function SettingsPage() {
 
   // Actualizar valores por defecto cuando cambie el perfil
   useEffect(() => {
-    if (profile) resetProfile({ full_name: profile.full_name })
+    if (profile) resetProfile({ full_name: profile.full_name, phone: profile.phone || '' })
   }, [profile, resetProfile])
 
   // Sincronizar brandingForm con el hook al montar
@@ -175,7 +176,7 @@ export default function SettingsPage() {
     if (!user) return
     setIsLoading(true)
     try {
-      await ProfileService.updateProfile(user.id, { full_name: data.full_name })
+      await ProfileService.updateProfile(user.id, { full_name: data.full_name, phone: data.phone || null })
       setIsEditingProfile(false)
       toast.success('Perfil actualizado')
       await refreshProfile()
@@ -311,6 +312,16 @@ export default function SettingsPage() {
                         )}
                       </div>
 
+                      <div>
+                        <label className='block text-sm font-medium text-gray-700 mb-2'>Teléfono</label>
+                        <input
+                          type='tel'
+                          {...registerProfile('phone')}
+                          className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                          placeholder='Ej: 099 123 456'
+                        />
+                      </div>
+
                       <div className='flex space-x-3'>
                         <button
                           type='submit'
@@ -357,6 +368,23 @@ export default function SettingsPage() {
                             <label className='block text-sm font-medium text-gray-700'>ID de Usuario</label>
                             <p className='mt-1 text-sm text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded'>
                               {user.id.slice(0, 8)}...
+                            </p>
+                          </div>
+                          <div>
+                            <label className='block text-sm font-medium text-gray-700'>Teléfono</label>
+                            <p className='mt-1 text-sm text-gray-900'>
+                              {profile.phone ? (
+                                <a
+                                  href={`https://wa.me/${profile.phone.replace(/\D/g, '').replace(/^0/, '598')}`}
+                                  target='_blank'
+                                  rel='noopener noreferrer'
+                                  className='text-green-600 hover:underline'
+                                >
+                                  {profile.phone}
+                                </a>
+                              ) : (
+                                <span className='text-gray-400 italic'>No cargado</span>
+                              )}
                             </p>
                           </div>
                           <div>

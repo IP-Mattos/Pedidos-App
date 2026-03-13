@@ -17,7 +17,9 @@ import {
   UserCheck,
   Pencil,
   Timer,
-  AlertTriangle
+  AlertTriangle,
+  MessageCircle,
+  Copy
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
@@ -163,6 +165,22 @@ export default function OrderDetailPage() {
   const isDone = order ? ['completado', 'entregado'].includes(order.status) : false
   const elapsed = useElapsedTime(order?.assigned_at, isDone ? order?.updated_at : null)
 
+  const handleCopyLink = () => {
+    const trackingUrl = `${window.location.origin}/track/${id}`
+    navigator.clipboard.writeText(trackingUrl)
+    toast.success('Link copiado')
+  }
+
+  const handleShareWhatsApp = () => {
+    const trackingUrl = `${window.location.origin}/track/${id}`
+    const phone = order?.customer_phone
+    const msg = `Hola ${order?.nombre_cliente}, podés seguir el progreso de tu pedido acá: ${trackingUrl}`
+    const url = phone
+      ? `https://wa.me/${phone.replace(/\D/g, '').replace(/^0/, '598')}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    window.open(url, '_blank')
+  }
+
   if (profile?.role !== 'admin') {
     return (
       <MainLayout>
@@ -247,6 +265,22 @@ export default function OrderDetailPage() {
                 <option value='cancelado'>Cancelado</option>
               </select>
               <OrderPDFButton order={order} />
+              <button
+                onClick={handleCopyLink}
+                title='Copiar link de seguimiento'
+                className='inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'
+              >
+                <Copy className='h-4 w-4 mr-1.5' />
+                Link
+              </button>
+              <button
+                onClick={handleShareWhatsApp}
+                title='Enviar por WhatsApp'
+                className='inline-flex items-center px-3 py-1.5 text-sm border border-green-300 rounded-md text-green-700 hover:bg-green-50'
+              >
+                <MessageCircle className='h-4 w-4 mr-1.5' />
+                WhatsApp
+              </button>
               <Link
                 href={`/admin/orders/${id}/edit`}
                 className='inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'

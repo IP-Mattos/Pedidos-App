@@ -1,13 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Users, Search, Shield, Wrench, UserX, UserCheck, RefreshCw, Truck } from 'lucide-react'
+import { Users, Search, Shield, Wrench, UserX, UserCheck, RefreshCw, Truck, MessageCircle, Edit2, X, Save, Loader2 } from 'lucide-react'
+
+function whatsappUrl(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  const normalized = digits.startsWith('0') ? '598' + digits.slice(1) : digits
+  return `https://wa.me/${normalized}`
+}
 import { MainLayout } from '@/components/layout/main-layout'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useAuth } from '@/hooks/use-auth'
 import { ProfileService } from '@/lib/services/profile-services'
 import { Profile } from '@/types/database'
 import toast from 'react-hot-toast'
+
+type EditingUser = { id: string; full_name: string; phone: string }
 
 export default function AdminUsersPage() {
   const { profile } = useAuth()
@@ -16,6 +24,8 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'worker' | 'delivery'>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [editingUser, setEditingUser] = useState<EditingUser | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -62,7 +72,6 @@ export default function AdminUsersPage() {
         setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_active: true } : u)))
         toast.success('Usuario reactivado')
       } else {
-        // Desactivar sin cerrar sesión del admin actual
         const supabase = (await import('@/lib/supabase/client')).createClient()
         await supabase
           .from('profiles')
@@ -75,6 +84,34 @@ export default function AdminUsersPage() {
       toast.error('Error al actualizar usuario')
     } finally {
       setUpdatingId(null)
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingUser) return
+    if (!editingUser.full_name.trim()) {
+      toast.error('El nombre no puede estar vacío')
+      return
+    }
+    setEditSaving(true)
+    try {
+      await ProfileService.updateProfile(editingUser.id, {
+        full_name: editingUser.full_name.trim(),
+        phone: editingUser.phone.trim() || null
+      })
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUser.id
+            ? { ...u, full_name: editingUser.full_name.trim(), phone: editingUser.phone.trim() || null }
+            : u
+        )
+      )
+      toast.success('Usuario actualizado')
+      setEditingUser(null)
+    } catch {
+      toast.error('Error al guardar')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -220,6 +257,9 @@ export default function AdminUsersPage() {
                     Rol
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Teléfono
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Estado
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
@@ -269,6 +309,21 @@ export default function AdminUsersPage() {
                           <option value='delivery'>Delivery</option>
                         </select>
                       </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm'>
+                        {user.phone ? (
+                          <a
+                            href={whatsappUrl(user.phone)}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='inline-flex items-center gap-1.5 text-green-600 hover:text-green-800 font-medium'
+                          >
+                            <MessageCircle className='h-3.5 w-3.5' />
+                            {user.phone}
+                          </a>
+                        ) : (
+                          <span className='text-gray-400'>—</span>
+                        )}
+                      </td>
                       <td className='px-6 py-4 whitespace-nowrap'>
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -282,30 +337,40 @@ export default function AdminUsersPage() {
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap text-right'>
-                        <button
-                          onClick={() => handleToggleActive(extUser)}
-                          disabled={isCurrentUser || isUpdating}
-                          title={isActive ? 'Desactivar usuario' : 'Reactivar usuario'}
-                          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
-                            isActive
-                              ? 'border-red-300 text-red-700 hover:bg-red-50'
-                              : 'border-green-300 text-green-700 hover:bg-green-50'
-                          }`}
-                        >
-                          {isUpdating ? (
-                            <RefreshCw className='h-3.5 w-3.5 animate-spin' />
-                          ) : isActive ? (
-                            <>
-                              <UserX className='h-3.5 w-3.5 mr-1' />
-                              Desactivar
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className='h-3.5 w-3.5 mr-1' />
-                              Reactivar
-                            </>
-                          )}
-                        </button>
+                        <div className='flex items-center justify-end gap-2'>
+                          <button
+                            onClick={() => setEditingUser({ id: user.id, full_name: user.full_name, phone: user.phone ?? '' })}
+                            title='Editar usuario'
+                            className='inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors'
+                          >
+                            <Edit2 className='h-3.5 w-3.5 mr-1' />
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(extUser)}
+                            disabled={isCurrentUser || isUpdating}
+                            title={isActive ? 'Desactivar usuario' : 'Reactivar usuario'}
+                            className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                              isActive
+                                ? 'border-red-300 text-red-700 hover:bg-red-50'
+                                : 'border-green-300 text-green-700 hover:bg-green-50'
+                            }`}
+                          >
+                            {isUpdating ? (
+                              <RefreshCw className='h-3.5 w-3.5 animate-spin' />
+                            ) : isActive ? (
+                              <>
+                                <UserX className='h-3.5 w-3.5 mr-1' />
+                                Desactivar
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className='h-3.5 w-3.5 mr-1' />
+                                Reactivar
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -315,6 +380,61 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {/* Modal editar usuario */}
+      {editingUser && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4'>
+          <div className='bg-white rounded-xl shadow-xl w-full max-w-sm p-6'>
+            <div className='flex items-center justify-between mb-5'>
+              <h2 className='text-lg font-semibold text-gray-900'>Editar usuario</h2>
+              <button onClick={() => setEditingUser(null)} className='text-gray-400 hover:text-gray-600'>
+                <X className='h-5 w-5' />
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Nombre completo</label>
+                <input
+                  type='text'
+                  value={editingUser.full_name}
+                  onChange={(e) => setEditingUser((s) => s ? { ...s, full_name: e.target.value } : s)}
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm'
+                  placeholder='Nombre completo'
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Teléfono</label>
+                <input
+                  type='tel'
+                  value={editingUser.phone}
+                  onChange={(e) => setEditingUser((s) => s ? { ...s, phone: e.target.value } : s)}
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm'
+                  placeholder='Ej: 099 123 456'
+                />
+              </div>
+            </div>
+
+            <div className='flex gap-3 mt-6'>
+              <button
+                onClick={handleSaveEdit}
+                disabled={editSaving}
+                className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium'
+              >
+                {editSaving ? <Loader2 className='h-4 w-4 animate-spin' /> : <Save className='h-4 w-4' />}
+                {editSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button
+                onClick={() => setEditingUser(null)}
+                className='flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium'
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   )
 }

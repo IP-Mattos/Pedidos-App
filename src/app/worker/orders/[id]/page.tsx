@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Timer,
   MessageSquare,
-  AlertTriangle
+  AlertTriangle,
+  Link2,
+  MessageCircle
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { MainLayout } from '@/components/layout/main-layout'
@@ -128,6 +130,22 @@ export default function WorkerOrderDetailPage() {
   const completedProducts = productProgress.filter((p) => p.is_completed).length
   const totalProducts = productProgress.length
 
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/track/${id}`
+    navigator.clipboard.writeText(url)
+    toast.success('Link copiado')
+  }
+
+  const handleShareWhatsApp = () => {
+    const url = `${window.location.origin}/track/${id}`
+    const phone = order.customer_phone
+    const msg = `Hola ${order.nombre_cliente}, podés seguir el progreso de tu pedido acá: ${url}`
+    const waUrl = phone
+      ? `https://wa.me/${phone.replace(/\D/g, '').replace(/^0/, '598')}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    window.open(waUrl, '_blank')
+  }
+
   const statusColor: Record<string, string> = {
     pendiente: 'bg-yellow-100 text-yellow-800',
     en_proceso: 'bg-blue-100 text-blue-800',
@@ -154,10 +172,26 @@ export default function WorkerOrderDetailPage() {
             <h1 className='text-2xl font-bold text-gray-900'>{order.nombre_cliente}</h1>
             <p className='text-sm text-gray-400 mt-0.5'>#{order.id.slice(-8)}</p>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 flex-wrap'>
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColor[order.status] ?? 'bg-gray-100 text-gray-800'}`}>
               {STATUS_LABEL[order.status] ?? order.status}
             </span>
+            <button
+              onClick={handleCopyLink}
+              title='Copiar link de seguimiento'
+              className='inline-flex items-center px-3 py-1.5 text-sm border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50'
+            >
+              <Link2 className='h-4 w-4 mr-1.5' />
+              Link
+            </button>
+            <button
+              onClick={handleShareWhatsApp}
+              title='Enviar link por WhatsApp'
+              className='inline-flex items-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700'
+            >
+              <MessageCircle className='h-4 w-4 mr-1.5' />
+              WhatsApp
+            </button>
             <WorkerOrderPDFButton order={order} />
             {isAssignedToMe && !isDone && order.status !== 'cancelado' && (
               <button

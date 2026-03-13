@@ -8,6 +8,14 @@ type Suggestion = {
   display_name: string
   lat: string
   lon: string
+  address?: {
+    road?: string
+    pedestrian?: string
+    house_number?: string
+    city?: string
+    town?: string
+    village?: string
+  }
 }
 
 interface AddressAutocompleteProps {
@@ -37,7 +45,10 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const valueRef = useRef(value)
   const debouncedValue = useDebounce(value, 400)
+
+  useEffect(() => { valueRef.current = value }, [value])
 
   // Close on outside click
   useEffect(() => {
@@ -72,9 +83,18 @@ export function AddressAutocomplete({
   }, [debouncedValue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelect = useCallback((s: Suggestion) => {
-    // Nominatim returns very long display_names — trim to street + city
-    const parts = s.display_name.split(',').slice(0, 3).join(',').trim()
-    onChange(parts)
+    let formatted: string
+    if (s.address) {
+      const street = s.address.road ?? s.address.pedestrian ?? ''
+      // If Nominatim didn't index the house number, extract it from what the user typed
+      const number = s.address.house_number ?? valueRef.current.match(/\d+/)?.[0] ?? ''
+      const city = s.address.city ?? s.address.town ?? s.address.village ?? ''
+      const streetWithNumber = [street, number].filter(Boolean).join(' ')
+      formatted = city ? `${streetWithNumber}, ${city}` : streetWithNumber
+    } else {
+      formatted = s.display_name.split(',').slice(0, 3).join(',').trim()
+    }
+    onChange(formatted)
     setSelected(true)
     setSuggestions([])
     setOpen(false)
@@ -119,8 +139,11 @@ export function AddressAutocomplete({
         <ul className='absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto'>
           {suggestions.map((s) => {
             const parts = s.display_name.split(',')
-            const main = parts.slice(0, 2).join(',').trim()
-            const sub = parts.slice(2, 4).join(',').trim()
+            const street = s.address?.road ?? s.address?.pedestrian ?? ''
+            const number = s.address?.house_number ?? ''
+            const city = s.address?.city ?? s.address?.town ?? s.address?.village ?? ''
+            const main = street ? [street, number].filter(Boolean).join(' ') : parts.slice(0, 2).join(',').trim()
+            const sub = city || parts.slice(2, 4).join(',').trim()
             return (
               <li key={s.place_id}>
                 <button

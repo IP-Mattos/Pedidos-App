@@ -24,7 +24,7 @@ export class ProfileService {
   }
 
   // Actualizar perfil
-  static async updateProfile(userId: string, updates: Partial<Pick<Profile, 'full_name'>>): Promise<Profile> {
+  static async updateProfile(userId: string, updates: Partial<Pick<Profile, 'full_name' | 'phone'>>): Promise<Profile> {
     const supabase = createClient()
 
     const { data, error } = await supabase

@@ -94,6 +94,9 @@ export class OrdersService {
       lista_productos?: unknown[]
       monto_total?: number
       notas?: string | null
+      requiere_boleta?: boolean
+      rut_cliente?: string | null
+      es_ingreso?: boolean
     }
   ) {
     const supabase = createClient()
