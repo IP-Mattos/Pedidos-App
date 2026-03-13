@@ -15,9 +15,9 @@ export const createOrderSchema = z.object({
   esta_pagado: z.boolean(),
   productos: z.array(productSchema).min(1, 'Debe agregar al menos un producto'),
   notas: z.string().optional(),
-  requiere_boleta: z.boolean().default(false),
+  requiere_boleta: z.boolean(),
   rut_cliente: z.string().optional(),
-  es_ingreso: z.boolean().default(false)
+  es_ingreso: z.boolean()
 })
 
 export type ProductFormData = z.infer<typeof productSchema>
