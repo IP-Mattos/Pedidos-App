@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Check, CheckSquare, Square, Package, AlertTriangle, Edit2, Save, X, ArrowLeftRight } from 'lucide-react'
 import { ProductProgressService, type ProductProgress } from '@/lib/services/product-progress-services'
 import toast from 'react-hot-toast'
@@ -16,10 +16,8 @@ const CAMBIO_PREFIX = 'CAMBIO:'
 
 const isFalta = (notes?: string | null) => !!notes?.startsWith(FALTA_PREFIX)
 const isCambio = (notes?: string | null) => !!notes?.startsWith(CAMBIO_PREFIX)
-
 const getFaltaReason = (notes?: string | null) => notes?.replace(FALTA_PREFIX, '').trim() ?? ''
 
-// CAMBIO format: "CAMBIO: <nuevo_producto> | <motivo>"
 const parseCambio = (notes?: string | null) => {
   const raw = notes?.replace(CAMBIO_PREFIX, '').trim() ?? ''
   const [producto, motivo] = raw.split('|').map((s) => s.trim())
@@ -39,10 +37,23 @@ type EditState = {
   notes: string
 }
 
+// Build optimistic progress from products (for initialization)
+function buildInitialProgress(products: ProductChecklistProps['products']): ProductProgress[] {
+  return products.map((p, i) => ({
+    order_id: '',
+    product_index: i,
+    producto: p.producto,
+    cantidad: p.cantidad,
+    is_completed: false,
+    cantidad_completada: 0,
+  }))
+}
+
 export function ProductChecklist({ orderId, products, isReadOnly = false }: ProductChecklistProps) {
   const [progress, setProgress] = useState<ProductProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [savingIndex, setSavingIndex] = useState<number | null>(null)
   const [editState, setEditState] = useState<EditState>({
     cantidadCompletada: 0,
     mode: 'normal',
@@ -52,31 +63,53 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
     notes: ''
   })
 
-  useEffect(() => { loadProgress() }, [orderId])
+  // Keep products in a ref so loadProgress doesn't recreate when parent re-renders
+  const productsRef = useRef(products)
+  productsRef.current = products
 
-  const loadProgress = async () => {
+  const loadProgress = useCallback(async () => {
+    const prods = productsRef.current
     try {
       const data = await ProductProgressService.getOrderProductProgress(orderId)
-      if (data.length === 0 && products.length > 0) {
-        await ProductProgressService.initializeProductProgress(orderId, products)
-        setProgress(await ProductProgressService.getOrderProductProgress(orderId))
+      if (data.length === 0 && prods.length > 0) {
+        // Show optimistic state immediately, then initialize in background
+        setProgress(buildInitialProgress(prods))
+        setLoading(false)
+        await ProductProgressService.initializeProductProgress(orderId, prods)
+        const initialized = await ProductProgressService.getOrderProductProgress(orderId)
+        setProgress(initialized)
       } else {
         setProgress(data)
+        setLoading(false)
       }
     } catch {
-      /* silent */
-    } finally {
       setLoading(false)
     }
-  }
+  }, [orderId])  // only orderId — products read from ref to avoid stale-closure re-init
+
+  useEffect(() => { loadProgress() }, [loadProgress])
 
   const handleToggle = async (index: number, current: boolean) => {
     if (isReadOnly) return
+    const newCompleted = !current
+
+    // Optimistic update — instant feedback
+    setProgress(prev => prev.map(p =>
+      p.product_index === index
+        ? { ...p, is_completed: newCompleted, cantidad_completada: newCompleted ? p.cantidad : 0 }
+        : p
+    ))
+
     try {
-      await ProductProgressService.toggleProductComplete(orderId, index, !current)
-      toast.success(!current ? 'Producto marcado como conseguido' : 'Producto desmarcado')
-      await loadProgress()
+      await ProductProgressService.toggleProductComplete(orderId, index, newCompleted)
+      toast.success(newCompleted ? 'Producto conseguido ✓' : 'Producto desmarcado')
     } catch {
+      // Revert on error
+      setProgress(prev => prev.map(p =>
+        p.product_index === index
+          ? { ...p, is_completed: current, cantidad_completada: current ? p.cantidad : 0 }
+          : p
+      ))
       toast.error('Error al actualizar el producto')
     }
   }
@@ -102,48 +135,63 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
     const item = progress.find((p) => p.product_index === index)
     if (!item) return
 
-    try {
-      let notes: string
-      let cantidad_completada: number
-      let is_completed: boolean
+    let notes: string
+    let cantidad_completada: number
+    let is_completed: boolean
 
-      if (editState.mode === 'falta') {
-        if (!editState.faltaReason.trim()) {
-          toast.error('Ingresá el motivo por el que falta el producto')
-          return
-        }
-        notes = `${FALTA_PREFIX} ${editState.faltaReason.trim()}`
-        cantidad_completada = 0
-        is_completed = false
-      } else if (editState.mode === 'cambio') {
-        if (!editState.cambioProducto.trim()) {
-          toast.error('Ingresá el producto de reemplazo')
-          return
-        }
-        notes = buildCambioNotes(editState.cambioProducto, editState.cambioMotivo)
-        cantidad_completada = item.cantidad
-        is_completed = true
-      } else {
-        notes = editState.notes
-        cantidad_completada = editState.cantidadCompletada
-        is_completed = cantidad_completada >= item.cantidad
+    if (editState.mode === 'falta') {
+      if (!editState.faltaReason.trim()) {
+        toast.error('Ingresá el motivo por el que falta el producto')
+        return
       }
+      notes = `${FALTA_PREFIX} ${editState.faltaReason.trim()}`
+      cantidad_completada = 0
+      is_completed = false
+    } else if (editState.mode === 'cambio') {
+      if (!editState.cambioProducto.trim()) {
+        toast.error('Ingresá el producto de reemplazo')
+        return
+      }
+      notes = buildCambioNotes(editState.cambioProducto, editState.cambioMotivo)
+      cantidad_completada = item.cantidad
+      is_completed = true
+    } else {
+      notes = editState.notes
+      cantidad_completada = editState.cantidadCompletada
+      is_completed = cantidad_completada >= item.cantidad
+    }
 
+    const prevProgress = progress
+
+    // Optimistic update — close modal immediately
+    setProgress(prev => prev.map(p =>
+      p.product_index === index
+        ? { ...p, is_completed, cantidad_completada, notes }
+        : p
+    ))
+    setEditingIndex(null)
+    setSavingIndex(index)
+
+    try {
       await ProductProgressService.updateProductProgress(orderId, index, { cantidad_completada, is_completed, notes })
       toast.success(
-        editState.mode === 'falta' ? 'Producto marcado como faltante' :
+        editState.mode === 'falta' ? 'Marcado como faltante' :
         editState.mode === 'cambio' ? 'Sustitución guardada' :
         'Producto actualizado'
       )
-      setEditingIndex(null)
-      await loadProgress()
     } catch {
+      setProgress(prevProgress)
+      setEditingIndex(index)
       toast.error('Error al guardar')
+    } finally {
+      setSavingIndex(null)
     }
   }
 
-  const overallProgress =
-    progress.length === 0 ? 0 : Math.round((progress.filter((p) => p.is_completed).length / progress.length) * 100)
+  const overallProgress = useMemo(
+    () => progress.length === 0 ? 0 : Math.round((progress.filter((p) => p.is_completed).length / progress.length) * 100),
+    [progress]
+  )
 
   if (loading) {
     return <div className='flex justify-center py-8'><div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500' /></div>
@@ -181,11 +229,12 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
           const cambio = esCambio ? parseCambio(item?.notes) : null
           const cantidadCompletada = item?.cantidad_completada ?? 0
           const isEditing = editingIndex === index
+          const isSaving = savingIndex === index
 
           return (
             <div
               key={index}
-              className={`border rounded-lg p-3 transition-all ${
+              className={`border rounded-lg p-3 transition-all duration-150 ${
                 isCompleted && !esCambio
                   ? 'bg-green-50 border-green-300'
                   : esFalta
@@ -193,7 +242,7 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                   : esCambio
                   ? 'bg-amber-50 border-amber-200'
                   : 'bg-white border-gray-200'
-              }`}
+              } ${isSaving ? 'opacity-70' : ''}`}
             >
               {isEditing ? (
                 <div className='space-y-3'>
@@ -308,7 +357,7 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                     {!isReadOnly && (
                       <button
                         onClick={() => !esFalta && !esCambio && handleToggle(index, isCompleted)}
-                        disabled={esFalta || esCambio}
+                        disabled={esFalta || esCambio || isSaving}
                         className='mt-0.5 hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-50 flex-shrink-0'
                       >
                         {isCompleted ? (
@@ -332,7 +381,6 @@ export function ProductChecklist({ orderId, products, isReadOnly = false }: Prod
                         {!esCambio && (
                           <span className='text-xs text-gray-500'>{cantidadCompletada}/{product.cantidad}</span>
                         )}
-
                         {isCompleted && !esCambio && (
                           <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'>
                             <Check className='h-3 w-3' /> Conseguido

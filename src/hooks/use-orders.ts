@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order } from '@/types/database'
 import { OrdersService } from '@/lib/services/order-services'
@@ -38,7 +38,7 @@ export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     // Cargar pedidos iniciales
@@ -125,9 +125,9 @@ export function useWorkerOrders(workerId: string) {
   const [myOrders, setMyOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
-  const fetchWorkerOrders = async () => {
+  const fetchWorkerOrders = useCallback(async () => {
     try {
       const [available, assigned] = await Promise.all([
         OrdersService.getAvailableOrders(),
@@ -140,7 +140,7 @@ export function useWorkerOrders(workerId: string) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [workerId])
 
   useEffect(() => {
     if (workerId) fetchWorkerOrders()
@@ -154,7 +154,6 @@ export function useWorkerOrders(workerId: string) {
           if (!workerId) return
 
           if (payload.eventType === 'INSERT' && payload.new) {
-            // Nuevo pedido: si es pendiente y sin asignar, aparece al inicio de disponibles
             if (payload.new.status === 'pendiente' && !payload.new.assigned_to) {
               const newOrder = {
                 ...payload.new,
@@ -166,7 +165,6 @@ export function useWorkerOrders(workerId: string) {
               setAvailableOrders((prev) => [newOrder, ...prev])
             }
           } else {
-            // Para UPDATE y DELETE, refetch completo para mantener consistencia
             fetchWorkerOrders()
           }
         }
@@ -174,20 +172,18 @@ export function useWorkerOrders(workerId: string) {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workerId, supabase])
+  }, [workerId, supabase, fetchWorkerOrders])
 
-  // Recarga sin mostrar el spinner de página (para usar post-modal)
-  const silentRefetch = async () => {
+  const silentRefetch = useCallback(async () => {
     if (!workerId) return
     await fetchWorkerOrders()
-  }
+  }, [workerId, fetchWorkerOrders])
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     if (!workerId) return
     setLoading(true)
     await fetchWorkerOrders()
-  }
+  }, [workerId, fetchWorkerOrders])
 
   return { availableOrders, myOrders, loading, error, refetch, silentRefetch }
 }

@@ -555,7 +555,10 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <button className='flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700'>
+                  <button
+                    onClick={() => toast.success('Configuración de notificaciones guardada')}
+                    className='flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700'
+                  >
                     <Save className='h-4 w-4 mr-2' />
                     Guardar Configuración
                   </button>

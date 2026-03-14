@@ -28,6 +28,7 @@ const ALL_SECTIONS: Section[] = [
   { id: 'ia-productos',   label: 'IA para productos',    icon: Sparkles },
   { id: 'admin-pedidos',  label: 'Lista de pedidos',     icon: Package },
   { id: 'admin-detalle',  label: 'Detalle de pedido',    icon: Eye },
+  { id: 'panel-prep',     label: 'Panel de preparación', icon: List },
   { id: 'clientes',       label: 'Clientes',             icon: UserRound },
   { id: 'ranking',        label: 'Ranking de workers',   icon: Trophy },
   { id: 'reportes',       label: 'Reportes',             icon: BarChart3 },
@@ -45,7 +46,7 @@ const ALL_SECTIONS: Section[] = [
 ]
 
 const ROLE_SECTIONS: Record<string, string[]> = {
-  admin:    ['intro', 'roles', 'flujo', 'admin-dash', 'crear-pedido', 'ia-productos', 'admin-pedidos', 'admin-detalle', 'clientes', 'ranking', 'reportes', 'usuarios', 'tracking', 'demo', 'worker', 'delivery', 'config', 'notificaciones', 'tiempo-real', 'costos', 'valor', 'precios'],
+  admin:    ['intro', 'roles', 'flujo', 'admin-dash', 'crear-pedido', 'ia-productos', 'admin-pedidos', 'admin-detalle', 'panel-prep', 'clientes', 'ranking', 'reportes', 'usuarios', 'tracking', 'demo', 'worker', 'delivery', 'config', 'notificaciones', 'tiempo-real', 'costos', 'valor', 'precios'],
   worker:   ['intro', 'worker', 'notificaciones', 'config', 'tiempo-real'],
   delivery: ['intro', 'delivery', 'config'],
 }
@@ -575,6 +576,49 @@ En otra boleta
 
                 <Divider />
 
+                {/* ── PANEL DE PREPARACIÓN ── */}
+                <SectionTitle id='panel-prep' icon={List}>Panel de preparación</SectionTitle>
+                <P>Accedé desde <strong>Gestión → Panel</strong> en el navbar. Es una vista en tiempo real diseñada para que el admin vea de un vistazo qué está preparando cada worker en este momento.</P>
+
+                <SubTitle>Vista por columnas</SubTitle>
+                <P>Cada worker con pedidos activos tiene su propia columna. Las columnas se ordenan alfabéticamente y cada una muestra:</P>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4'>
+                  {[
+                    { label: 'Avatar y nombre', desc: 'Iniciales del worker con color único asignado automáticamente.' },
+                    { label: 'Conteo de ítems', desc: 'Cantidad de productos conseguidos sobre el total de todos sus pedidos.' },
+                    { label: 'Barra de progreso global', desc: 'Porcentaje de avance del worker considerando todos sus pedidos activos.' },
+                    { label: 'Badge "Listo"', desc: 'Aparece cuando el worker completó el 100% de todos sus productos.' },
+                  ].map((f) => (
+                    <div key={f.label} className='bg-gray-50 rounded-xl p-3 border border-gray-100'>
+                      <p className='text-xs font-bold text-gray-700 mb-1'>{f.label}</p>
+                      <p className='text-xs text-gray-500'>{f.desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <SubTitle>Tarjeta de pedido en el panel</SubTitle>
+                <P>Cada pedido dentro de una columna muestra el progreso detallado de sus productos:</P>
+                <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-4 list-disc'>
+                  <li><strong>Barra de progreso</strong> con porcentaje — verde cuando está completo al 100%</li>
+                  <li><strong>Temporizador</strong> con el tiempo transcurrido desde que se tomó el pedido</li>
+                  <li>Cada producto con su estado visual: <span className='font-medium text-emerald-700'>✓ conseguido</span>, <span className='font-medium text-red-600'>⚠ faltante</span>, <span className='font-medium text-amber-600'>⇄ cambiado</span>, o pendiente</li>
+                  <li>Notas y productos de reemplazo visibles directamente en la tarjeta</li>
+                </ul>
+
+                <SubTitle>Indicador de urgencia</SubTitle>
+                <P>Si un pedido lleva <strong>más de 30 minutos</strong> activo, la tarjeta cambia a borde rojo y el temporizador se muestra en rojo. Esto permite al admin detectar rápidamente pedidos que se están demorando demasiado.</P>
+                <InfoBox type='warn'>Un pedido marcado en rojo no se cancela automáticamente — es solo una alerta visual para que el admin tome acción.</InfoBox>
+
+                <SubTitle>Actualización en tiempo real</SubTitle>
+                <P>El panel se actualiza automáticamente cada vez que un worker marca un producto como conseguido, faltante o cambiado. No hace falta recargar la página — el progreso aparece en segundos.</P>
+                <FeatureGrid items={[
+                  { icon: Zap,       title: 'Sin recarga',    desc: 'Supabase Realtime propaga los cambios instantáneamente a todos los admins que tengan el panel abierto.' },
+                  { icon: RefreshCw, title: 'Botón refrescar', desc: 'Si por alguna razón los datos parecen desactualizados, el botón "Refrescar" fuerza una recarga completa.' },
+                ]} />
+                <InfoBox type='tip'>El panel es ideal para tenerlo abierto en una pantalla secundaria o tablet mientras el equipo trabaja — el admin puede monitorear todo sin moverse del lugar.</InfoBox>
+
+                <Divider />
+
                 {/* ── CLIENTES ── */}
                 <SectionTitle id='clientes' icon={UserRound}>Clientes</SectionTitle>
                 <P>Accedé desde <strong>Gestión → Clientes</strong>. El sistema registra automáticamente a los clientes cuando se crean pedidos y permite gestionar su información.</P>
@@ -748,18 +792,33 @@ En otra boleta
                 <SectionTitle id='worker' icon={CheckCircle}>Worker — Mis Pedidos</SectionTitle>
                 <P>Al iniciar sesión, el worker ve directamente sus pedidos asignados. No tiene acceso a pedidos de otros workers.</P>
 
-                <SubTitle>Pedidos activos</SubTitle>
-                <P>Muestra todos los pedidos asignados al worker que aún no están completados. Cada tarjeta tiene:</P>
+                <SubTitle>Un pedido a la vez</SubTitle>
+                <P>Cada worker solo puede tener <strong>un pedido activo a la vez</strong>. Si ya tenés un pedido tomado, los demás pedidos disponibles aparecen con el mensaje <em>"Ya tenés un pedido activo"</em> y no se pueden tomar hasta que liberes o completes el actual.</P>
+                <InfoBox type='tip'>Esto evita que un worker acumule varios pedidos sin terminar y garantiza que el progreso del checklist siempre corresponde al pedido correcto.</InfoBox>
+
+                <SubTitle>Pedido Actual</SubTitle>
+                <P>Cuando tomás un pedido, aparece en la parte superior de la página dentro de una sección <strong>"Pedido Actual"</strong> visualmente destacada:</P>
                 <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-4 list-disc'>
-                  <li>Nombre del cliente y dirección (con link a Google Maps)</li>
+                  <li>Borde azul con brillo y anillo de color para diferenciarlo del resto</li>
+                  <li>Punto animado (ping) que indica que es el pedido en curso</li>
+                  <li>Acceso directo al checklist de productos desde la misma tarjeta</li>
+                  <li>Temporizador en tiempo real que muestra cuánto tiempo lleva el pedido activo</li>
+                  <li>Botón para liberar el pedido si necesitás devolverlo al pool de disponibles</li>
+                </ul>
+                <InfoBox type='info'>El Pedido Actual siempre está visible al tope de la página — no tenés que buscar entre la lista de disponibles.</InfoBox>
+
+                <SubTitle>Pedidos disponibles</SubTitle>
+                <P>Debajo del Pedido Actual se muestra la lista de pedidos pendientes que aún no fueron tomados por nadie. Cada tarjeta muestra:</P>
+                <ul className='text-sm text-gray-600 space-y-1 mb-4 ml-4 list-disc'>
+                  <li>Nombre del cliente y datos de contacto</li>
                   <li>Lista de productos a preparar</li>
-                  <li>Fecha de entrega y urgencia</li>
-                  <li>Botón para cambiar el estado</li>
+                  <li>Fecha de entrega, monto y método de pago</li>
+                  <li>Botón <strong>"Tomar este pedido"</strong> (deshabilitado si ya tenés uno activo)</li>
                 </ul>
 
                 <SubTitle>Cambiar estado de un pedido</SubTitle>
                 <StepList steps={[
-                  { title: 'Abrí el pedido', desc: 'Hacé click en la tarjeta para ver el detalle.' },
+                  { title: 'Abrí el pedido', desc: 'Hacé click en "Ver detalle" para abrir el detalle completo.' },
                   { title: 'Seleccioná el nuevo estado', desc: 'Usá el selector de estado en el detalle del pedido.' },
                   { title: 'Guardá el cambio', desc: 'El pedido se actualiza y el admin lo ve en tiempo real.' },
                 ]} />

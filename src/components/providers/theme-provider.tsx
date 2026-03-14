@@ -1,8 +1,11 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { ProfileService } from '@/lib/services/profile-services'
+
+const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/verification-success', '/auth-code-error']
 
 type Theme = 'light' | 'dark'
 
@@ -25,6 +28,8 @@ function applyThemeClass(t: Theme) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light')
   const { user } = useAuth()
+  const pathname = usePathname()
+  const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p))
 
   const setTheme = (t: Theme) => {
     applyThemeClass(t)
@@ -33,17 +38,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Leer localStorage al montar (sin esperar a Supabase → sin flash)
+  // Saltear en páginas de auth — siempre deben mostrarse en modo claro
   useEffect(() => {
+    if (isAuthPage) {
+      applyThemeClass('light')
+      return
+    }
     const saved = localStorage.getItem('theme') as Theme | null
     if (saved === 'dark' || saved === 'light') {
       applyThemeClass(saved)
       setThemeState(saved)
     }
-  }, [])
+  }, [isAuthPage])
 
   // Cuando el usuario carga, sincronizar desde Supabase
   useEffect(() => {
-    if (!user) return
+    if (!user || isAuthPage) return
     ProfileService.getUserPreferences(user.id)
       .then((prefs) => {
         if (prefs?.theme === 'dark' || prefs?.theme === 'light') {
@@ -52,7 +62,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id])
+  }, [user?.id, isAuthPage])
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

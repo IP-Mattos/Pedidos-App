@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { createClient } from '@/lib/supabase/client'
 import { OrdersService } from '@/lib/services/order-services'
@@ -251,7 +251,7 @@ export default function AdminBoardPage() {
   const [progDetail, setProgDetail]   = useState<ProgDetail[]>([])
   const [loading, setLoading]         = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const loadOrders = useCallback(async () => {
     try {
@@ -286,13 +286,15 @@ export default function AdminBoardPage() {
     return () => { supabase.removeChannel(ch) }
   }, [loadOrders, supabase])
 
-  const byWorker: Record<string, Order[]> = {}
-  for (const o of orders) {
-    const name = (o as any).assignee?.full_name ?? 'Sin asignar'
-    if (!byWorker[name]) byWorker[name] = []
-    byWorker[name].push(o)
-  }
-  const workers = Object.keys(byWorker).sort()
+  const { byWorker, workers } = useMemo(() => {
+    const byWorker: Record<string, Order[]> = {}
+    for (const o of orders) {
+      const name = (o as any).assignee?.full_name ?? 'Sin asignar'
+      if (!byWorker[name]) byWorker[name] = []
+      byWorker[name].push(o)
+    }
+    return { byWorker, workers: Object.keys(byWorker).sort() }
+  }, [orders])
 
   return (
     <MainLayout>

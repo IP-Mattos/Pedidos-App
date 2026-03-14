@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, Search, Filter, Package, ChevronLeft, ChevronRight, ClipboardList, Clock, CheckCircle, AlertTriangle } from 'lucide-react'
 
@@ -24,6 +24,34 @@ export default function AdminOrdersPage() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 6
+
+  const filteredOrders = useMemo(() => orders.filter((order) => {
+    const matchesSearch =
+      order.nombre_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.id.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter
+    const entrega = order.fecha_entrega.split('T')[0]
+    const matchesFrom = !dateFrom || entrega >= dateFrom
+    const matchesTo = !dateTo || entrega <= dateTo
+    return matchesSearch && matchesStatus && matchesFrom && matchesTo
+  }), [orders, searchTerm, statusFilter, dateFrom, dateTo])
+
+  const paginatedOrders = useMemo(
+    () => filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredOrders, page]
+  )
+
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return [
+      { label: 'Total Pedidos', value: orders.length, icon: ClipboardList, iconColor: 'text-blue-400' },
+      { label: 'En Proceso', value: orders.filter((o) => o.status === 'en_proceso').length, icon: Clock, iconColor: 'text-yellow-400' },
+      { label: 'Completados', value: orders.filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status)).length, icon: CheckCircle, iconColor: 'text-green-400' },
+      { label: 'Vencidos', value: orders.filter((o) => o.fecha_entrega.split('T')[0] < today && !['pagado', 'entregado', 'cancelado'].includes(o.status)).length, icon: AlertTriangle, iconColor: 'text-red-400' }
+    ]
+  }, [orders])
+
+  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE)
 
   if (profile?.role !== 'admin') {
     return (
@@ -56,52 +84,6 @@ export default function AdminOrdersPage() {
       </MainLayout>
     )
   }
-
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.nombre_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter
-
-    const entrega = order.fecha_entrega.split('T')[0]
-    const matchesFrom = !dateFrom || entrega >= dateFrom
-    const matchesTo = !dateTo || entrega <= dateTo
-
-    return matchesSearch && matchesStatus && matchesFrom && matchesTo
-  })
-
-  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE)
-  const paginatedOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  const today = new Date().toISOString().split('T')[0]
-  const stats = [
-    {
-      label: 'Total Pedidos',
-      value: orders.length,
-      icon: ClipboardList,
-      iconColor: 'text-blue-400'
-    },
-    {
-      label: 'En Proceso',
-      value: orders.filter((o) => o.status === 'en_proceso').length,
-      icon: Clock,
-      iconColor: 'text-yellow-400'
-    },
-    {
-      label: 'Completados',
-      value: orders.filter((o) => ['completado', 'pagado', 'entregado'].includes(o.status)).length,
-      icon: CheckCircle,
-      iconColor: 'text-green-400'
-    },
-    {
-      label: 'Vencidos',
-      value: orders.filter(
-        (o) => o.fecha_entrega.split('T')[0] < today && !['pagado', 'entregado', 'cancelado'].includes(o.status)
-      ).length,
-      icon: AlertTriangle,
-      iconColor: 'text-red-400'
-    }
-  ]
 
   const handleCancelConfirm = async () => {
     if (!pendingCancelId) return
